@@ -1,0 +1,39 @@
+Cell Formatting
+
+p bool	AddIndent	Ha függőleges v vízszintes igazítás = Elosztva, legyen-e behúzás
+p obj	Borders		p Color		RGB függvénnyel állítható elő: RGB(0, 255, 0)
+			p ColorIndex	színindex aktuális palettában
+			p Item		xlDiagonalDown		5	Border running from the upper-left corner to the lower-right of each cell in the range.
+					xlDiagonalUp		6	Border running from the lower-left corner to the upper-right of each cell in the range.
+					xlEdgeBottom		9	Border at the bottom of the range.
+					xlEdgeLeft		7	Border at the left edge of the range.
+					xlEdgeRight		10	Border at the right edge of the range.
+					xlEdgeTop		8	Border at the top of the range.
+					xlInsideHorizontal	12	Horizontal borders for all cells in the range except borders on the outside of the range.
+					xlInsideVertical	11	Vertical borders for all the cells in the range except borders on the outside of the range.
+			p LineStyle	xlGray25, xlGray50, xlGray75, or xlAutomatic,
+					xlContinuous	1	Continuous line.
+					xlDash		-4115	Dashed line.
+					xlDashDot	4	Alternating dashes and dots.
+					xlDashDotDot	5	Dash followed by two dots.
+					xlDot		-4118	Dotted line.
+					xlDouble	-4119	Double line.
+					xlLineStyleNone	-4142	No line.
+					xlSlantDashDot	13	Slanted dashes.
+			p ThemeColor	Témaszín???
+			p TintAndShade	Törtszám, szín árnyalására (-: sötétítés, +: világosítás)
+			p Value
+			p Weight	xlHairline	1	Hairline (thinnest border).
+					xlMedium	-4138	Medium.
+					xlThick		4	Thick (widest border).
+					xlThin		2	Thin.
+p obj	Font		p Color		vbBlack, vBlue, vbCyan, vbGreen, vbMagenta, vbRed, vbWhite, vbYellow
+					RGB(255, 255, 255)
+			p FontSize	int
+			p Bold		bool
+			p Name		"Times New Roman"
+
+
+
+Cell formatting can be save and restored as a cell style.
+
