@@ -1,9 +1,9 @@
-(defsystem "clex"
-  :description "Punishing Excel"
+(defsystem "wax"
+  :description "Interpolate stuff into MS Word and Excel documents"
   :author      "Denes Cselovszki <denes.cselovszki@gmail.com>"
   :version     "0.01"
-  :depends-on  ("comwrapper")
+  :depends-on  ("ccom" "cl-ppcre")
   :serial      t
   :components  ((:file "package")
                 (:file "fli-templates")
-                (:file "clex")))
+                (:file "wax")))

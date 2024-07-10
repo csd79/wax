@@ -1,8 +1,9 @@
-;;; -*- Mode: Common-Lisp; Author: denes.cselovszky@gmail.com -*- 
+;;;; -*- Mode: Common-Lisp; Author: denes.cselovszky@gmail.com -*- 
                                                                               ;
+
 (in-package #:cl-user)
 
-(defpackage #:clex
-  (:use #:cl #:comwrapper)
-;  (:export #:start))
-)
+
+(defpackage #:wax
+  (:use #:cl #:ccom )
+  (:export #:start))
