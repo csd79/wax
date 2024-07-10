@@ -56,41 +56,26 @@ Szintaxis: (Excelhez újra kell gondolni!)
 |#
 
 
-
-#|
-;;; Remove simple and multiline comments.
-(defun remove-comments (string)
-  (remove-delimited-substrings
-   (remove-delimited-substrings string "#;" *eol*)
-   "#{" "#}"))
-
-NOT NEEDED
-;;; Add unique decoration to a symbol name (to be used as placeholder in a document).
-(defun decorate (symbol)
-  (format nil "#[~a]" (symbol-name symbol)))
-|#
-
-
-(defun list-comments (string open close &optional (start 0) (comments '()))
-  (let ((start (search open string :test #'string= :start2 start)))
-    (if start
-      (let* ((len (length string))
-             (end (search close string :test #'string= :start2 start))
-             (end2 (+ end (length close)))
-             (end3 (if (and (< end2 len)
-                            (char= (elt string end2)
-                                   (elt *eol* 0)))
-                     (1+ end2)
-                     end2)))
-        (list-comments
-         string open close end
-         (cons (subseq string start (min end3 len))
-               comments)))
-      (nreverse comments))))
-
-(defun list-all-comments (string)
-  (append (list-comments string "#;" *eol*)
-          (list-comments string "#{" "#}")))
+;;; List all simple and multiline comments in STRING.
+(defun list-comments (string)
+  (labels ((list-cmmnts (string open close &optional (start 0) (comments '()))
+             (let ((start (search open string :test #'string= :start2 start)))
+               (if start
+                 (let* ((len (length string))
+                        (end (search close string :test #'string= :start2 start))
+                        (end2 (+ end (length close)))
+                        (end3 (if (and (< end2 len)
+                                       (char= (elt string end2)
+                                              (elt *eol* 0)))
+                                (1+ end2)
+                                end2)))
+                   (list-cmmnts
+                    string open close end
+                    (cons (subseq string start (min end3 len))
+                          comments)))
+                 (nreverse comments)))))
+        (append (list-cmmnts string "#;" *eol*)
+                (list-cmmnts string "#{" "#}"))))
 
 
 ;;; Searches SEQUENCE for multiple prosperous SUBSEQS,
@@ -102,7 +87,7 @@ NOT NEEDED
                             subseqs))
         (min-pos    nil)
         (min-subseq nil))
-    ;; Determining first occurance of any subseq
+    ;; Determining first occurrance of any subseq
     (mapc #'(lambda (subseq position)
               (if min-pos
                 ;; There were previous finds
@@ -149,21 +134,25 @@ NOT NEEDED
                               remove-subs))
                ;; Remove insert from string
                (string      (replace-1substring string exp-string "")))
+;          (print exp-string)
           (doc-processor string exp-pairs repl-subs remove-subs)))
       ;; No more inserts
-      (values string exp-pairs repl-subs remove-subs))))
+      (values exp-pairs repl-subs remove-subs))))
 
 
-(defun rearrange (expressions)
+;;; Construct the evaluator expression for the document.
+(defun construct-fn (expressions body)
   (let ((head '())
-        (body '()))
+        (neck '()))
     (loop for (sym exp) in expressions doing
           (if (and (listp exp)
                    (eq (first exp) 'local))
             (push (second exp) head)
-            (push (list sym exp) body)))
-    (list 'let* (apply #'append (nreverse head))
-          (list 'let* (nreverse body)))))
+            (push (list sym exp) neck)))
+    (let ((neck (nreverse neck)))
+      (list 'let* (apply #'append (nreverse head))
+            (append (list 'let* neck)
+                    body)))))
 
 
 (defconstant +wd-find-continue+  1)
@@ -173,66 +162,83 @@ NOT NEEDED
   #m(execute find orig-text nil nil nil nil nil t +wd-find-continue+ nil new-text))
 
 
+;;; ------------------------
 
 
-      (cclet* ((document  #m(open documents *doc-template*))
-               (find      #p(find #p(content document))))
-        ;; Loop over the columns of the control array, perform replace operations in the document content.
-        (loop for col from 0 below (array-dimension control 0) doing
-              (word-replace-text find 
-                                 (format nil "<~a>" (ccom:column (1+ col)))
-                                 (aref control col)))
-
-
-
-
-;;; A VÉGÉN ÉRDEMES LENNE FELSZABADÍTANI A SOK GENSYM-ET, MERT ITERATÍV MÓDBEN RENGETEG LESZ.
-;;; VAGY MAGÁTÓL MEGY??
-  
 (defun test1 ()
   (cclet* ((document (get-document *s*))
            (content  #p(content document)))
     #p(text content)))
 
 
-
 (defun test2 ()
-  (cclet* ((document (get-document *s*))
+  (cclet* ((word      (com:create-object :progid "Word.Application"))
+           (documents #p(documents word))
+           (document  #m(open documents *s*))
+           (content   #p(content document))
+           (text      #p(text content))
+           (find      #p(find content))) 
+    (let ((comments (list-comments text)))
+      (multiple-value-bind (exp-pairs repl-subs remove-subs)
+          (doc-processor text)
+;        (pprint (rearrange exp-pairs))))))
+;        (pprint repl-subs)))))
+        (pprint remove-subs)))
+    #m(close document)))
+
+
+(defun remove-comments (document)
+  (cclet* ((content  #p(content document))
+           (text     #p(text content))
+           (find     #p(find content))
+           (comments (list-comments text)))
+    (dolist (comment comments)
+      (word-replace-text find comment ""))
+    document))
+
+
+(defun test3 ()
+  (cclet* ((word      (com:create-object :progid "Word.Application"))
+           (documents #p(documents word))
+           (document  #m(open documents *s*))
            (content  #p(content document))
-           (text     #p(text content)))
-    (multiple-value-bind (string exp-pairs repl-subs remove-subs)
-        (doc-processor text)
-;      (pprint (rearrange exp-pairs)))))
-;      (pprint repl-subs))))
-      (pprint remove-subs))))
+           (text     #p(text content))
+           (find     #p(find content))
+           (comments (list-comments text)))
+    (unwind-protect
+        (progn
+          ;; Remove comments
+          (dolist (comment comments)
+            (word-replace-text find comment ""))
+          (multiple-value-bind (expr-clauses placeholders removables)
+              (doc-processor text)
+            ;; Remove #&s
+            (dolist (removable removables)
+              (word-replace-text find removable ""))
+            ;; Construct body
+            (let* ((body  (mapcar 
+                           #'(lambda (placeholder)
+                               (append '(word-replace-text find) placeholder))
+                           placeholders))
+                   (whole (construct-fn expr-clauses body)))
+              (progv '(find) (list find)
+                (eval whole)))
+;            (search-file '(1 2 3) "vazz" 1 "ok")
+            ))
+      (progn
+        #m(saveas2 document *so*)
+        #m(close document 0)))))
+
+;;; A VÉGÉN ÉRDEMES LENNE FELSZABADÍTANI A SOK GENSYM-ET, MERT ITERATÍV MÓDBEN RENGETEG LESZ.
+;;; VAGY MAGÁTÓL MEGY??
+
+
+;;; MI VAN HA HEAD VAGY NECK ÜRES??? AKKOR CONSTRUCT-FN MIT CSINÁL???
+
+
+;;; A WORD REPLACE-BEN TÉNYLEG VAN EGY LIMIT A (content  #p(content document))
+;;; KÓDBLOKK KIAKASZTJA. DARABOLÁS?
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#|(defun test3 ()
-  (cclet* ((document (get-document *s*))
-           (content  #p(content document))
-           (text     #p(text content)))
-    (setf #p(text content)
-          (remove-comments text))
-    #m(saveas2 document *so*)))|#
-
-
-
+;;; Ha valahol kimarad egy záró zárójel, a read-from-string ráfuthat egy insert kódra #& és rögtön kiabál hogy nincs ilyen reader karakter.
