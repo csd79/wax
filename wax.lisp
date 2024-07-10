@@ -43,13 +43,13 @@ Szintaxis: (Excelhez újra kell gondolni!)
   #@           Az ezután következõ kifejezés értéke behelyettesítésre kerül
                a dokumentumba.
 
-  #&(LOCAL     Mint LET*, de minden késõbb következõ beszúrás a hatókörébe
+  #&(LOCAL     Mint CCLET*, de minden késõbb következõ beszúrás a hatókörébe
                fog számítani. #@ beszúrással nem mûködik!
 
   #;           Az ez után következõ szöveg a sor végéig megjegyzés. (Más
                kifejezések után ; nem használható, csak ilyen módon.)
 
-  #{/#}        Töbsoros megjegyzés
+  #{/#}        Többsoros megjegyzés
 
 
 
@@ -150,7 +150,7 @@ Szintaxis: (Excelhez újra kell gondolni!)
             (push (second exp) head)
             (push (list sym exp) neck)))
     (let ((neck (nreverse neck)))
-      (list 'let* (apply #'append (nreverse head))
+      (list 'cclet* (apply #'append (nreverse head))
             (append (list 'let* neck)
                     body)))))
 
@@ -187,14 +187,14 @@ Szintaxis: (Excelhez újra kell gondolni!)
     #m(close document)))
 
 
-(defun remove-comments (document)
+#|(defun remove-comments (document)
   (cclet* ((content  #p(content document))
            (text     #p(text content))
            (find     #p(find content))
            (comments (list-comments text)))
     (dolist (comment comments)
       (word-replace-text find comment ""))
-    document))
+    document))|#
 
 
 (defun test3 ()
@@ -238,6 +238,8 @@ Szintaxis: (Excelhez újra kell gondolni!)
 
 ;;; A WORD REPLACE-BEN TÉNYLEG VAN EGY LIMIT A (content  #p(content document))
 ;;; KÓDBLOKK KIAKASZTJA. DARABOLÁS?
+;;; A hiba a WORD-REPLACE-TEXT-ben jelentkezik, 255 karakternél hosszabb csere esetén.
+;;; Itt trükk kell, hogy keresse meg a végét és töröljön, és csak az elejére (<255 kar) alkalmazza a cserét.
 
 
 
