@@ -40,14 +40,14 @@ Szintaxis: (Excelhez újra kell gondolni!)
   #&           Az ezután következõ kifejezés ki lesz értékelve, de az értéke
                nem kerül behelyettesítésre a dokumentumba.
 
-  #;           Az ez után következõ szöveg a sor végéig megjegyzés. (Más
-               kifejezések után ; nem használható, csak ilyen módon.)
-
   #@           Az ezután következõ kifejezés értéke behelyettesítésre kerül
                a dokumentumba.
 
-  LOCAL        Mint LET*, de minden késõbb következõ beszúrás a hatókörébe
-               fog számítani.
+  #&(LOCAL     Mint LET*, de minden késõbb következõ beszúrás a hatókörébe
+               fog számítani. #@ beszúrással nem mûködik!
+
+  #;           Az ez után következõ szöveg a sor végéig megjegyzés. (Más
+               kifejezések után ; nem használható, csak ilyen módon.)
 
   #{/#}        Töbsoros megjegyzés
 
@@ -56,30 +56,45 @@ Szintaxis: (Excelhez újra kell gondolni!)
 |#
 
 
-(defun remove-delimited-substrings (string open close)
-  (let ((start (search open string :test #'string=)))
+
+#|
+;;; Remove simple and multiline comments.
+(defun remove-comments (string)
+  (remove-delimited-substrings
+   (remove-delimited-substrings string "#;" *eol*)
+   "#{" "#}"))
+
+NOT NEEDED
+;;; Add unique decoration to a symbol name (to be used as placeholder in a document).
+(defun decorate (symbol)
+  (format nil "#[~a]" (symbol-name symbol)))
+|#
+
+
+(defun list-comments (string open close &optional (start 0) (comments '()))
+  (let ((start (search open string :test #'string= :start2 start)))
     (if start
-      (let* ((length (length string))
-             (end  (or (search close string :test #'string= :start2 start)
-                       length string))
-             (pre  (if (zerop start)
-                     ""
-                     (subseq string 0 start)))
-             (post (if (= end length)
-                     ""
-                     (subseq string (+ end (length close))))))
-        (remove-delimited-substrings
-         (concatenate 'string pre post)
-         open close))
-      string)))
+      (let* ((len (length string))
+             (end (search close string :test #'string= :start2 start))
+             (end2 (+ end (length close)))
+             (end3 (if (and (< end2 len)
+                            (char= (elt string end2)
+                                   (elt *eol* 0)))
+                     (1+ end2)
+                     end2)))
+        (list-comments
+         string open close end
+         (cons (subseq string start (min end3 len))
+               comments)))
+      (nreverse comments))))
 
-(defun remove-simple-comments (string)
-  (remove-delimited-substrings string "#;" *eol*))
-
-(defun remove-multiline-comments (string)
-  (remove-delimited-substrings string "#{" "#}"))
+(defun list-all-comments (string)
+  (append (list-comments string "#;" *eol*)
+          (list-comments string "#{" "#}")))
 
 
+;;; Searches SEQUENCE for multiple prosperous SUBSEQS,
+;;; return the position and identity of the earliest one.
 (defun search-any (subseqs sequence &key (test #'equalp))
   ;; Trying to find first occurance of each subseq
   (let ((positions  (mapcar #'(lambda (subseq)
@@ -100,23 +115,12 @@ Szintaxis: (Excelhez újra kell gondolni!)
                         min-subseq subseq))))
           subseqs positions)
     (values min-pos min-subseq)))
-    
-
-(defun decorate (symbol)
-  (format nil "#[~a]" (symbol-name symbol)))
 
 
-(defun replace-1substring (string old new &optional (start 0))
-  (let ((start (search old string :start2 start)))
-    (if start
-        (let* ((end    (+ start (length old)))
-               (before (subseq string 0 start))
-               (after  (subseq string end)))
-          (concatenate 'string before new after))
-      string)))
-
-
-(defun doc-processor (string &optional (exp-pairs '()))
+;;; Extract inserts from STRING, replace them with placeholders.
+;;; Return the processed string and the extracted expressions as LET*-clauses.
+(defun doc-processor (string &optional (exp-pairs '())
+                             (repl-subs '()) (remove-subs '()))
   ;; Look for inserts
   (multiple-value-bind (start subseq)
       (search-any '("#&" "#@") string)
@@ -126,35 +130,109 @@ Szintaxis: (Excelhez újra kell gondolni!)
           (read-from-string string nil nil
                             :start (+ start (length subseq))
                             :preserve-whitespace t)
-        (let* ((symbol        (gensym))
-               (new-exp-pairs (append exp-pairs
-                                      (list symbol expression)))
-               (exp-string    (subseq string start next))
-               (new-string    (cond
-                               ;; Insert = #@: replace it decorated symbol
-                               ((string= subseq "#@")
-                                (replace-1substring string
-                                                    exp-string
-                                                    (decorate symbol)))
-                               ;; Insert = #&: remove it with trailing newline
-                               ((string= subseq "#&")
-                                (replace-1substring string
-                                                    (if (char= (elt string next)
-                                                               (elt *eol* 0))
-                                                      (concatenate 'string
-                                                                   exp-string *eol*)
-                                                      exp-string)
-                                                    ""))
-                               ;; Default case, should never occur
-                               (t string))))
-          (doc-processor new-string new-exp-pairs)))
+        (let* ((symbol      (gensym))
+               ;; Store expression
+               (exp-pairs   (append exp-pairs
+                                    (list
+                                     (list symbol expression))))
+               (exp-string  (subseq string start next))
+               ;; Store replacable expression if subseq=#@
+               (repl-subs   (if (string= subseq "#@")
+                              (append repl-subs
+                                      (list
+                                       (list exp-string symbol)))
+                              repl-subs))
+               ;; Store removable expression if subseq=#&
+               (remove-subs (if (string= subseq "#&")
+                              (append remove-subs
+                                      (list exp-string))
+                              remove-subs))
+               ;; Remove insert from string
+               (string      (replace-1substring string exp-string "")))
+          (doc-processor string exp-pairs repl-subs remove-subs)))
       ;; No more inserts
-      (values string exp-pairs))))
+      (values string exp-pairs repl-subs remove-subs))))
+
+
+(defun rearrange (expressions)
+  (let ((head '())
+        (body '()))
+    (loop for (sym exp) in expressions doing
+          (if (and (listp exp)
+                   (eq (first exp) 'local))
+            (push (second exp) head)
+            (push (list sym exp) body)))
+    (list 'let* (apply #'append (nreverse head))
+          (list 'let* (nreverse body)))))
+
+
+(defconstant +wd-find-continue+  1)
+
+;;; Replace text in Word doc.
+(defun word-replace-text (find orig-text new-text)
+  #m(execute find orig-text nil nil nil nil nil t +wd-find-continue+ nil new-text))
 
 
 
 
+      (cclet* ((document  #m(open documents *doc-template*))
+               (find      #p(find #p(content document))))
+        ;; Loop over the columns of the control array, perform replace operations in the document content.
+        (loop for col from 0 below (array-dimension control 0) doing
+              (word-replace-text find 
+                                 (format nil "<~a>" (ccom:column (1+ col)))
+                                 (aref control col)))
+
+
+
+
+;;; A VÉGÉN ÉRDEMES LENNE FELSZABADÍTANI A SOK GENSYM-ET, MERT ITERATÍV MÓDBEN RENGETEG LESZ.
+;;; VAGY MAGÁTÓL MEGY??
+  
 (defun test1 ()
   (cclet* ((document (get-document *s*))
            (content  #p(content document)))
     #p(text content)))
+
+
+
+(defun test2 ()
+  (cclet* ((document (get-document *s*))
+           (content  #p(content document))
+           (text     #p(text content)))
+    (multiple-value-bind (string exp-pairs repl-subs remove-subs)
+        (doc-processor text)
+;      (pprint (rearrange exp-pairs)))))
+;      (pprint repl-subs))))
+      (pprint remove-subs))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#|(defun test3 ()
+  (cclet* ((document (get-document *s*))
+           (content  #p(content document))
+           (text     #p(text content)))
+    (setf #p(text content)
+          (remove-comments text))
+    #m(saveas2 document *so*)))|#
+
+
+
