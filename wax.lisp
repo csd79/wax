@@ -8,52 +8,41 @@
 ;; Global vars
 
 
-(defparameter *s* "c:\\Users\\cselovszkid\\common-lisp\\wax\\teszt.docx")
-(defparameter *so* "c:\\Users\\cselovszkid\\common-lisp\\wax\\teszt__.docx")
+(defparameter *eol* (format nil "~C" #\return)) ; End of row in a Word doc
+
+(defparameter *infile*     nil) ; File for process input
+(defparameter *outfile*    nil) ; File for process output
+;; Iterative mode: where are the values to iterate over?
+(defparameter *iter-file*  nil)
+(defparameter *iter-sheet* nil)
+(defparameter *iter-title* nil)
+;; Iterative mode: what is the values for the current iteration?
+(defparameter *current*    nil)
 
 
-(defparameter *eol* (format nil "~C" #\return))
+;;; ----------------------------------------------------------------------
+;;; Utilities
 
 
-#|
-2 üzemmód kell:
-
-  1. Egyszeri feldolgozás. A program végigmegy az inline jelzõkön, összegyûjti
-  a kifejezéseket és a hozzájuk tartozó pozíciókat, majd mindent kiértékel, és
-  az értékeket becseréli a megjegyzett pozíciókra. Ezután az eredményt új
-  néven elmenti.
-
-  2. Iteratív feldolgozás. Standard globális változókban megadott helyen
-  (Excel fájl, munkalap, oszlop: *ITER-FILE*, *ITER-SHEET*, *ITER-HEADER*)
-  lévõ egyedi értékeken megy végig, az aktuális értéket egy standard globális
-  változóban tárolja: *CURRENT*.
-
-Módválasztás: ha az *ITER-FILE*, *ITER-SHEET* és *ITER-HEADER* változók
-definiálva vannak, akkor iteratív mód szükséges, egyébként egyszeri.
-
-Mentés: kell egy standard globális változó ami a mentett fájl nevét
-tartalmazza: *OUTFILE*. Ha ez üres, akkor a program a bemeneti fájl alapján
-generál egy nevet.
-
-Szintaxis: (Excelhez újra kell gondolni!)
-
-  #&           Az ezután következõ kifejezés ki lesz értékelve, de az értéke
-               nem kerül behelyettesítésre a dokumentumba.
-
-  #@           Az ezután következõ kifejezés értéke behelyettesítésre kerül
-               a dokumentumba.
-
-  #&(LOCAL     Mint CCLET*, de minden késõbb következõ beszúrás a hatókörébe
-               fog számítani. #@ beszúrással nem mûködik!
-
-  #;           Az ez után következõ szöveg a sor végéig megjegyzés. (Más
-               kifejezések után ; nem használható, csak ilyen módon.)
-
-  #{/#}        Többsoros megjegyzés
+;;; Initialize controlling global variables (after each iteration).
+(defun init-globals ()
+  (setf *outfile* nil
+        *iter-file* nil
+        *iter-sheet* nil
+        *iter-title* nil
+        *current* nil))
 
 
+;;; Generate automatic outfile name if *OUTFILE* is NIL.
+(defun auto-outfile (infile)
+  (let* ((in-str (namestring infile))
+         (in-name (pathname-name in-str))
+         (out-name (concatenate 'string in-name "_")))
+    (make-pathname :name out-name :defaults infile)))
 
-|#
+
+;;; ----------------------------------------------------------------------
+;;; Processing Word document
 
 
 ;;; List all simple and multiline comments in STRING.
@@ -134,7 +123,6 @@ Szintaxis: (Excelhez újra kell gondolni!)
                               remove-subs))
                ;; Remove insert from string
                (string      (replace-1substring string exp-string "")))
-;          (print exp-string)
           (doc-processor string exp-pairs repl-subs remove-subs)))
       ;; No more inserts
       (values exp-pairs repl-subs remove-subs))))
@@ -155,92 +143,52 @@ Szintaxis: (Excelhez újra kell gondolni!)
                     body)))))
 
 
-(defconstant +wd-find-continue+  1)
 
-;;; Replace text in Word doc.
-(defun word-replace-text (find orig-text new-text)
-  #m(execute find orig-text nil nil nil nil nil t +wd-find-continue+ nil new-text))
+;;; ----------------------------------------------------------------------
+;;; Processing modes
 
 
-;;; ------------------------
-
-
-(defun test1 ()
-  (cclet* ((document (get-document *s*))
-           (content  #p(content document)))
-    #p(text content)))
-
-
-(defun test2 ()
+(defun process-single-document (infile)
   (cclet* ((word      (com:create-object :progid "Word.Application"))
            (documents #p(documents word))
-           (document  #m(open documents *s*))
-           (content   #p(content document))
-           (text      #p(text content))
-           (find      #p(find content))) 
-    (let ((comments (list-comments text)))
-      (multiple-value-bind (exp-pairs repl-subs remove-subs)
-          (doc-processor text)
-;        (pprint (rearrange exp-pairs))))))
-;        (pprint repl-subs)))))
-        (pprint remove-subs)))
-    #m(close document)))
-
-
-#|(defun remove-comments (document)
-  (cclet* ((content  #p(content document))
-           (text     #p(text content))
-           (find     #p(find content))
-           (comments (list-comments text)))
-    (dolist (comment comments)
-      (word-replace-text find comment ""))
-    document))|#
-
-
-(defun test3 ()
-  (cclet* ((word      (com:create-object :progid "Word.Application"))
-           (documents #p(documents word))
-           (document  #m(open documents *s*))
-           (content  #p(content document))
-           (text     #p(text content))
-           (find     #p(find content))
-           (comments (list-comments text)))
+           (document  #m(open documents infile))
+           (text      #p(text #p(content document)))
+           (comments  (list-comments text)))
     (unwind-protect
         (progn
           ;; Remove comments
           (dolist (comment comments)
-            (word-replace-text find comment ""))
+            (word-replace-text document comment ""))
           (multiple-value-bind (expr-clauses placeholders removables)
               (doc-processor text)
             ;; Remove #&s
             (dolist (removable removables)
-              (word-replace-text find removable ""))
-            ;; Construct body
+              (word-replace-text document removable ""))
+            ;; Construct embedded script
             (let* ((body  (mapcar 
                            #'(lambda (placeholder)
-                               (append '(word-replace-text find) placeholder))
+                               (append '(word-replace-text document) placeholder))
                            placeholders))
                    (whole (construct-fn expr-clauses body)))
-              (progv '(find) (list find)
-                (eval whole)))
-;            (search-file '(1 2 3) "vazz" 1 "ok")
-            ))
-      (progn
-        #m(saveas2 document *so*)
-        #m(close document 0)))))
-
-;;; A VÉGÉN ÉRDEMES LENNE FELSZABADÍTANI A SOK GENSYM-ET, MERT ITERATÍV MÓDBEN RENGETEG LESZ.
-;;; VAGY MAGÁTÓL MEGY??
-
-
-;;; MI VAN HA HEAD VAGY NECK ÜRES??? AKKOR CONSTRUCT-FN MIT CSINÁL???
+              ;; Evaluate script
+              (progv '(document) (list document)
+                (eval whole)))))
+      ;; Save results
+      (let ((outfile (namestring (or *outfile*
+                                     (auto-outfile infile)))))
+        (print outfile)
+        #m(saveas2 document outfile)
+        #m(close document 0)
+        (init-globals)))))
 
 
-;;; A WORD REPLACE-BEN TÉNYLEG VAN EGY LIMIT A (content  #p(content document))
-;;; KÓDBLOKK KIAKASZTJA. DARABOLÁS?
-;;; A hiba a WORD-REPLACE-TEXT-ben jelentkezik, 255 karakternél hosszabb csere esetén.
-;;; Itt trükk kell, hogy keresse meg a végét és töröljön, és csak az elejére (<255 kar) alkalmazza a cserét.
+;;; ----------------------------------------------------------------------
+;;; Sandbox
 
 
+(defparameter *s* "c:\\Users\\cselovszkid\\common-lisp\\wax\\teszt.docx")
 
-;;; Ha valahol kimarad egy záró zárójel, a read-from-string ráfuthat egy insert kódra #& és rögtön kiabál hogy nincs ilyen reader karakter.
+
+(defun test1 ()
+  (let ((*infile* *s*))
+    (process-single-document *infile*)))

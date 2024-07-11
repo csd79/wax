@@ -1,0 +1,48 @@
+2 üzemmód kell:
+
+  1. Egyszeri feldolgozás. A program végigmegy az inline jelzőkön, összegyűjti
+  a kifejezéseket és a hozzájuk tartozó pozíciókat, majd mindent kiértékel, és
+  az értékeket becseréli a megjegyzett pozíciókra. Ezután az eredményt új
+  néven elmenti.
+
+  2. Iteratív feldolgozás. Standard globális változókban megadott helyen
+  (Excel fájl, munkalap, oszlop: *ITER-FILE*, *ITER-SHEET*, *ITER-TITLE*)
+  lévő egyedi értékeken megy végig, az aktuális értéket egy standard globális
+  változóban tárolja: *CURRENT*.
+
+Módválasztás: ha az *ITER-FILE*, *ITER-SHEET* és *ITER-HEADER* változók
+értéke nem NIL, iteratív mód szükséges, egyébként egyszeri.
+
+Mentés: kell egy standard globális változó ami a mentett fájl nevét
+tartalmazza: *OUTFILE*. Ha ez üres, akkor a program a bemeneti fájl alapján
+generál egy nevet.
+
+Szintaxis: (Excelhez újra kell gondolni!)
+
+  #&           Az ezután következő kifejezés ki lesz értékelve, de az értéke
+               nem kerül behelyettesítésre a dokumentumba.
+
+  #@           Az ezután következő kifejezés értéke behelyettesítésre kerül
+               a dokumentumba.
+
+  #&(LOCAL     Mint CCLET*, de minden később következő beszúrás a hatókörébe
+               fog számítani. #@ beszúrással nem működik!
+
+  #;           Az ez után következő szöveg a sor végéig megjegyzés. (Más
+               kifejezések után ; nem használható, csak ilyen módon.)
+
+  #{/#}        Többsoros megjegyzés
+
+----------
+
+A Word Find/Replace csak <=255 karakter hosszúságút szöveget tud kezelni. Ezért
+pl. hosszú LOCAL-kifejezések esetén törléskor a WORD-REPLACE-TEXT hibát okoz.
+
+Jó lenne előre ellenőrizni olyan dolgokat mint:
+ - " helyett magyar idézőjel
+ - hiányzó zárójelek
+
+Mit csinál a CONSTRUCT-FN ha a HEAD vagy NECK üres?
+
+A sok (GENSYM) nem halmozódik fel? Nem lenne érdemes felszabadítani egy-egy
+dokumentum feldolgozása végén.
