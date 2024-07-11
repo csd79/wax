@@ -8,29 +8,18 @@
 ;; Global vars
 
 
-(defparameter *eol* (format nil "~C" #\return)) ; End of row in a Word doc
+(defparameter *eol*   (format nil "~C" #\return)) ; End of row in a Word doc
 
-(defparameter *infile*     nil) ; File for process input
-(defparameter *outfile*    nil) ; File for process output
-;; Iterative mode: where are the values to iterate over?
-(defparameter *iter-file*  nil)
-(defparameter *iter-sheet* nil)
-(defparameter *iter-title* nil)
-;; Iterative mode: what is the values for the current iteration?
-(defparameter *current*    nil)
+(defparameter *batch*   nil)
+(defparameter *current* nil)
+
+(defparameter *infile*  nil) ; File for process input
+(defparameter *outfile* nil) ; File for process output
+
 
 
 ;;; ----------------------------------------------------------------------
 ;;; Utilities
-
-
-;;; Initialize controlling global variables (after each iteration).
-(defun init-globals ()
-  (setf *outfile* nil
-        *iter-file* nil
-        *iter-sheet* nil
-        *iter-title* nil
-        *current* nil))
 
 
 ;;; Generate automatic outfile name if *OUTFILE* is NIL.
@@ -78,13 +67,13 @@
         (min-subseq nil))
     ;; Determining first occurrance of any subseq
     (mapc #'(lambda (subseq position)
-              (if min-pos
-                ;; There were previous finds
-                (when (< position min-pos)
-                  (setf min-pos position
-                        min-subseq subseq))
-                ;; First find
-                (when position
+              (when position
+                (if min-pos
+                  ;; There were previous finds
+                  (when (< position min-pos)
+                    (setf min-pos position
+                          min-subseq subseq))
+                  ;; First find
                   (setf min-pos position
                         min-subseq subseq))))
           subseqs positions)
@@ -138,9 +127,9 @@
             (push (second exp) head)
             (push (list sym exp) neck)))
     (let ((neck (nreverse neck)))
-      (list 'cclet* (apply #'append (nreverse head))
-            (append (list 'let* neck)
-                    body)))))
+      (print (list 'cclet* (apply #'append (nreverse head))
+                   (append (list 'let* neck)
+                           body))))))
 
 
 
@@ -148,7 +137,31 @@
 ;;; Processing modes
 
 
+(defun batch-mode (file sheet title)
+  (if *batch*
+    ;; Iteratives already extracted
+    (progn
+      (setf *current* (first *batch*)
+            *batch*   (rest *batch*))
+      (format t "already running~%next: ~a~%batch: ~a~%" *current* *batch*))
+    ;; Extract iteratives
+    (cclet* ((wbook (get-document file))
+             (wsheets #p(worksheets wbook))
+             (wsheet  #p(item wsheets sheet))
+             (column  (title-column wsheet title)))
+      (with-used-edges (wsheet left top right bottom)
+        (let* ((col    #p(value2 (range wsheet column 2 column bottom)))
+               (list   (loop for i from 0 below (array-dimension col 0)
+                             collecting (aref col i 0)))
+               (unique (remove-duplicates list :test #'equalp)))
+          (setf *current* (first unique)
+                *batch*   (rest unique))
+          (format t "starting batch~%first: ~a~%batch: ~a~%" *current* *batch*))))))
+
+
+
 (defun process-single-document (infile)
+  (setf *infile* infile)
   (cclet* ((word      (com:create-object :progid "Word.Application"))
            (documents #p(documents word))
            (document  #m(open documents infile))
@@ -176,10 +189,12 @@
       ;; Save results
       (let ((outfile (namestring (or *outfile*
                                      (auto-outfile infile)))))
-        (print outfile)
+        (format t "procsf: current: ~a~%outfile: ~a~%" *current* outfile)
         #m(saveas2 document outfile)
-        #m(close document 0)
-        (init-globals)))))
+        #m(close document 0))))
+  ;; Reset & continue batch (if any)
+  (when *batch*
+    (process-single-document infile)))
 
 
 ;;; ----------------------------------------------------------------------
@@ -190,5 +205,7 @@
 
 
 (defun test1 ()
-  (let ((*infile* *s*))
-    (process-single-document *infile*)))
+  (unwind-protect
+      (process-single-document *s*)
+    (setf *batch* nil)))
+  

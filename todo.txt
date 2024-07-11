@@ -10,12 +10,14 @@
   lévő egyedi értékeken megy végig, az aktuális értéket egy standard globális
   változóban tárolja: *CURRENT*.
 
-Módválasztás: ha az *ITER-FILE*, *ITER-SHEET* és *ITER-HEADER* változók
-értéke nem NIL, iteratív mód szükséges, egyébként egyszeri.
+Módválasztás: adjunk értéket a *MODE* változónak:
+  :single  Egy fájl feldolgozása
+  :batch   Kötegelt feldolgozás.
 
 Mentés: kell egy standard globális változó ami a mentett fájl nevét
 tartalmazza: *OUTFILE*. Ha ez üres, akkor a program a bemeneti fájl alapján
-generál egy nevet.
+generál egy nevet az *INFILE* változó értéke alapján, ami a mindenkori
+bemeneti fájl nevét tartalmazza.
 
 Szintaxis: (Excelhez újra kell gondolni!)
 
@@ -46,3 +48,29 @@ Mit csinál a CONSTRUCT-FN ha a HEAD vagy NECK üres?
 
 A sok (GENSYM) nem halmozódik fel? Nem lenne érdemes felszabadítani egy-egy
 dokumentum feldolgozása végén.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Merge in:
+---------
+cref
+patrick
+redminebot (partially)
+snewper (partially)
+splt
+tigger?
+
