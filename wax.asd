@@ -1,7 +1,7 @@
 (defsystem "wax"
-  :description "Interpolate stuff into MS Word and Excel documents"
+  :description "Scripting environment for MS Office apps"
   :author      "Denes Cselovszki <denes.cselovszki@gmail.com>"
-  :version     "0.06"
+  :version     "0.07"
   :depends-on  ("ccom" "cl-ppcre")
   :serial      t
   :components  ((:file "package")
