@@ -23,6 +23,7 @@
 |#
 
 
+#|
 (defun replace-1substring (string old new &optional (start 0))
   (let ((start (search old string :start2 start)))
     (if start
@@ -31,22 +32,28 @@
                (after  (subseq string end)))
           (concatenate 'string before new after))
       string)))
+|#
 
 
+#|
 (defun compile-and-load (source-file fasl-directory)
   (let* ((filename  (pathname-name source-file))
          (fasl-file (make-pathname :name filename :type "fasl" :defaults fasl-directory)))
 ;    (compile-file source-file :output-file fasl-file :load t)))
     (compile-file source-file :output-file fasl-file)
     (load fasl-file)))
+|#
 
 
+#|
 (defun hotload-files (source-files source-dir fasl-directory)
   (dolist (source-file source-files)
     (compile-and-load (make-pathname :name source-file :type "lisp" :defaults source-dir)
                       fasl-directory)))
+|#
 
 
+#|
 (defun hotload-ccom ()
   (hotload-files '("package"
                    "utilities"
@@ -57,6 +64,7 @@
                    "sandbox")
                  "c:\\Users\\cselovszkid\\common-lisp\\ccom\\"
                  "c:\\Users\\cselovszkid\\common-lisp\\ccom\\fasl\\"))
+|#
 
 
 #|
