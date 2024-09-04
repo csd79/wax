@@ -140,17 +140,17 @@
 (defun start ()
   ;, Oldaltörés inicializálása.
   (setf *page-break-needed* nil)
-  (with-workbook (wbook :open-file *xls-query* :wsvars (ws-query) :close t)
+  (with-workbook (wbook :open-file *xls-query* :read-only t :wsvars (ws-query) :close t)
     (let ((tk-head "Vállalat hosszú megnevezése"))
       ;; Iteráció TK-kon.
       (xdouniq (tk ws-query tk-head)
         ;; Iteráció személyi körökön.
-        (xdouniq (ps ws-query "SZK" :select (tk-head tk))
+        (xdouniq (ps ws-query "SZK" :select `((,tk-head ,tk)))
           ;; Új dokumentum létrehozása, mentés másként
           (ccom::with-document (newdoc :close t :save t)
             #m(saveas2 newdoc (newfile tk ps))
             ;; Iteráció SZTSZ-eken.
-            (xdouniq (sztsz ws-query "SZTSZ" :select (tk-head tk "SZK" ps))
+            (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
               ;; SZTSZ adatainak beírása a dokumentumba.
               (add-template ws-query newdoc sztsz))))))))
 
@@ -179,6 +179,32 @@
             (xdouniq (sztsz ws-query "SZTSZ" :select (tk-head tk "SZK" ps))
               ;; SZTSZ adatainak beírása a dokumentumba.
               (test09-fill ws-query newdoc sztsz))))))))
+
+
+
+(defun test10 ()
+  (with-workbook (wbook :open-file *xls-query* :wsvars (ws-query) :close t)
+    (cclet* ((filtered (xselect> ws-query '(("Vállalat hosszú megnevezése" "Sziget*")
+                                            ("SZK" "B2")
+                                            ))))
+      (loop for r from 2 upto (last-row filtered) doing
+            (format t "~a~%" (xcell filtered "SZTSZ" r))))
+    ))
+
+
+(defun test11 ()
+  (with-workbook (wbook :open-file *xls-query* :wsvars (ws-query) :close t)
+    (xdouniq (e ws-query "Vállalat hosszú megnevezése")
+      (print e))))
+
+
+(defun test12 ()
+  (with-workbook (wbook :open-file *xls-query* :read-only t :wsvars (ws-query) :close t)
+    (let ((tk-head "Vállalat hosszú megnevezése"))
+       (xdouniq (tk ws-query tk-head)
+         (xdouniq (ps ws-query "SZK" :select `((,tk-head ,tk)))
+             (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
+               (format t "~a   ~a   ~a~%" tk ps sztsz)))))))
 
 
 
