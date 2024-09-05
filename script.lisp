@@ -44,8 +44,6 @@
           *out-dir* "temp" (timestamp (get-universal-time)) ".docx"))
 
 
-
-
 ;;; ----------------------------------------------------------------------
 ;;; Törzs
 
@@ -53,44 +51,40 @@
 (defparameter *page-break-needed* nil)
 
 
-(defmacro extrfn (colds &body body)
+#|(defmacro extrfn (colds &body body)
   `#'(lambda (wsheet sztsz)
        (let ,(mapcar #'(lambda (pair)
                          `(,(first pair)
                            (xcell wsheet ,(second pair) (list "SZTSZ" sztsz))))
                      colds)
+         ,@body)))|#
+
+
+(defmacro getfn (colds &body body)
+  `#'(lambda (xarray)
+       (let ,(mapcar #'(lambda (pair)
+                         `(,(first pair)
+                           (xaref xarray ,(second pair) 1)))
+                     colds)
          ,@body)))
 
 
-#|(defparameter *t1* `(("$01$" ,#'(lambda (wsheet sztsz)
-                                  (clean-name (xcell wsheet "Név" `("SZTSZ" ,sztsz)))))
-
-                     ("$02$" ,#'(lambda (wsheet sztsz)
-                                  (clean-name
-                                   (conc-with-single-spaces
-                                    (list (xcell wsheet "Születési vezetéknév" `("SZTSZ" ,sztsz))
-                                          (xcell wsheet "Születési utónév"     `("SZTSZ" ,sztsz))
-                                          (xcell wsheet "2.születési utónév"   `("SZTSZ" ,sztsz)))))))
-
-                     ("$03$" ,#'(lambda (wsheet sztsz)
-                                  (concatenate 'string
-                                               (clean-name
-                                                (xcell wsheet "Születési hely"  `("SZTSZ" ,sztsz)))
-                                               ", "
-                                               (excel-date-string
-                                                (xcell wsheet "Születési dátum" `("SZTSZ" ,sztsz))
-                                                :words t))))
-
-                     ("$04$" ,#'(lambda (wsheet sztsz)
-                                  (clean-name
-                                   (conc-with-single-spaces
-                                    (list (xcell wsheet "Anya"                `("SZTSZ" ,sztsz))
-                                          (xcell wsheet "Anyja keresztneve"   `("SZTSZ" ,sztsz))
-                                          (xcell wsheet "Anyja 2.keresztneve" `("SZTSZ" ,sztsz)))))))
-))|#
-
-
 (defparameter *t2*
+  `(("$01$" ,(getfn ((a "Név"))
+               (clean-name a)))
+    
+    ("$02$" ,(getfn ((a "Születési vezetéknév") (b "Születési utónév") (c "2.születési utónév"))
+               (clean-name (conc-with-single-spaces (list a b c)))))
+    
+    ("$03$" ,(getfn ((a "Születési hely") (b "Születési dátum"))
+               (concatenate 'string (clean-name a) ", " (excel-date-string b :words t))))
+
+    ("$04$" ,(getfn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
+               (clean-name (conc-with-single-spaces (list a b c)))))
+))
+
+
+#|(defparameter *t2*
   `(("$01$" ,(extrfn ((a "Név"))
                (clean-name a)))
     
@@ -102,44 +96,46 @@
 
     ("$04$" ,(extrfn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
                (clean-name (conc-with-single-spaces (list a b c)))))
-))
+))|#
 
 
-
-
-
-(defun fill-template (worksheet current sztsz)
+(defun fill-template (current xarray)
   (dolist (pair *t2*)
     (destructuring-bind (old new-fn)
         pair
-      (word-replace-text current old (funcall new-fn worksheet sztsz)))))
+      (word-replace-text current old (funcall new-fn xarray)))))
 
 
+#|(defun fill-template (tmpdoc xarray)
+  (format t "~a    ~a    ~a~%"
+          (xaref xarray "Vállalat hosszú megnevezése" 1)
+          (xaref xarray "SZK" 1)
+          (xaref xarray "SZTSZ" 1)))|#
 
-(defun add-template (worksheet document sztsz)
-  (let ((ps  (xcell worksheet "SZK" `("SZTSZ" ,sztsz)))
-        (tmp (tempfile)))
+
+(defun add-template (doc xarray)
+  (setf x xarray)
+  (let ((ps    (xaref xarray "SZK" 1))
+        (tmp   (tempfile)))
     ;; Új temp file dok.sablon alapján
     (ccom::with-document (current :open-file (doctemplate ps) :close t :save t)
       #m(saveas2 current tmp)
       ;; Temp sablon feltöltése a lekérdezésbõl
-      (fill-template worksheet current sztsz))
+      (fill-template current xarray))
     ;; Temp sablon tartalmának beillesztése az eredménybe
     (if *page-break-needed*
-      #m(insertbreak (end-of-doc document))
+      #m(insertbreak (end-of-doc doc))
       (setf *page-break-needed* t))
-    #m(insertfile (end-of-doc document) tmp)
+    #m(insertfile (end-of-doc doc) tmp)
     ;; Temp törlése
     (delete-file tmp))
   ;; Eredmény állapotának mentése
-  #m(save document)
+  #m(save doc)
   ;; Progress bar
-  (format t "~a~%" sztsz))  
+  (format t "~a~%" (xaref xarray "SZTSZ" 1)))
 
 
 (defun start ()
-  ;, Oldaltörés inicializálása.
-  (setf *page-break-needed* nil)
   (with-workbook (wbook :open-file *xls-query* :read-only t :wsvars (ws-query) :close t)
     (let ((tk-head "Vállalat hosszú megnevezése"))
       ;; Iteráció TK-kon.
@@ -150,16 +146,20 @@
           (ccom::with-document (newdoc :close t :save t)
             #m(saveas2 newdoc (newfile tk ps))
             ;; Iteráció SZTSZ-eken.
+            ;; Oldaltörés inicializálása.
+            (setf *page-break-needed* nil)
             (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
               ;; SZTSZ adatainak beírása a dokumentumba.
-              (add-template ws-query newdoc sztsz))))))))
+              (add-template newdoc
+                            #p(value2 (used-range (xselect> ws-query
+                                                            `(("SZTSZ" ,sztsz)))))))))))))
 
 
 ;;; ----------------------------------------------------------------------
 ;;; Sandbox
 
 
-(defun test09-fill (worksheet document sztsz)
+#|(defun test09-fill (worksheet document sztsz)
   (cclet* ((range #m(range document 0 0)))
     #m(insertafter range sztsz)
     #m(insertafter range "  ")
@@ -204,7 +204,7 @@
        (xdouniq (tk ws-query tk-head)
          (xdouniq (ps ws-query "SZK" :select `((,tk-head ,tk)))
              (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
-               (format t "~a   ~a   ~a~%" tk ps sztsz)))))))
+               (format t "~a   ~a   ~a~%" tk ps sztsz)))))))|#
 
 
 

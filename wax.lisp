@@ -8,84 +8,8 @@
 ;; Things that should go into CCOM
 
 
-
-
-
-
-
-
 ;; ----------------------------------------------------------------------
 ;; Excel stuff
-
-
-#|;; List values from given column.
-(defun list-column-values (wsheet column-designator &key (first 2) (last :last) (select '()))
-  (let ((column (resolve-column-designator column-designator wsheet)))
-    (unless column
-      (error "Column ~a cannot be found in worksheet ~a." column-designator wsheet))
-    (if select
-      ;; SELECT is present, iterationg over given rows.
-      (loop for r in select collecting
-            (xcell wsheet column r))
-      ;; Otherwise, extracting rows between START and LAST-ROW.
-      (let ((last-row (cond ((integerp last) last)
-                            ((eq last :last) (last-row wsheet))
-                            (t (error "Keyword argument :LAST must be an integer (row number) or :LAST.")))))
-        (when (< last-row first)
-          (error "LAST-ROW (~a) is smaller then FIRST (~a)." last-row first))
-        (coerce
-         (column->row
-          (xrange wsheet column first column last-row))
-         'list)))))
-
-;; List unique values from given column.
-(defun list-unique-column-values (wsheet column-designator &key (first 2) (last :last) (test :auto) (select '()))
-  (let* ((all-values (list-column-values wsheet column-designator :first first :last last :select select))
-         (test-fn    (cond ((eq test :auto) #'equalp)
-                           ((typep test 'function) test)
-                           (t (error "TEST must be a function or :AUTO.")))))
-    (declare (ignore wsheet))
-    (remove-duplicates all-values :test test-fn)))
-
-;; List row numbers with given values in designated columns. Example:
-;;   (select-rows wsheet
-;;                '("SZK" "B9")
-;;                '("Születési hely" "Budapest") ...)
-;; ->
-;;   (19 24 32 38 66)
-(defun select-rows (wsheet &rest subscripts)
-  (flet ((single (column-designator value)
-           (let ((values  (list-column-values wsheet column-designator)))
-             (loop for i from 0 below (length values)
-                   when (equalp (nth i values) value)
-                   collect (+ i 2)))))
-    (sort (reduce #'nintersection
-                  (loop for (col val) in subscripts collecting
-                        (single col val)))
-          #'<)))
-
-;; A more comfortable version of LIST-UNIQUE-COLUMN-VALUES. SELECT must be a flat list of subscripts.
-(defun xuniq (wsheet col-designator &key (first 2) (last :last) (test :auto) (select '()))
-  ;; Split subscripts into (column value) pairs.
-  (let ((subscripts (loop for a in select by #'cddr
-                          for b in (rest select) by #'cddr collecting (list a b))))
-    
-    (if subscripts
-      (let ((selected (apply #'select-rows wsheet subscripts)))
-        ;; If subscripts yielded a selection, list values from it, otherwise return an empty list.
-        (when selected
-          (list-unique-column-values wsheet col-designator :first first :last last :test test
-                                     :select selected)))
-      ;; If subscripts are empty, list values while ignoring them.
-      (list-unique-column-values wsheet col-designator :first first :last last :test test :select '()))))
-
-;; Iterate over unique values from column COLUMND in the WSHEET worksheet,
-;; according to selection.
-(defmacro xdouniq ((i wsheet columnd &key (first 2) (last :last) (test :auto) (select '())) &body body)
-  (let ((list (gensym)))
-    `(let ((,list (xuniq ,wsheet ,columnd :first ,first :last ,last :test ,test :select ,(cons 'list select))))
-       (dolist (,i ,list)
-         ,@body))))|#
 
 
 (defun xcol-values (wsheet column &key (start 2))
@@ -96,11 +20,14 @@
       (make-array 1 :initial-element result))))
 
 
-(defun xcol-uniques (wsheet column &key (start 2) (test #'equalp))
-  (remove-duplicates (xcol-values wsheet column :start start) :test test))
+(defun xcol-uniques (wsheet column &key (start 2) (test :auto))
+  (let ((test-fn  (cond ((eq test :auto) #'equalp)
+                        ((typep test 'function) test)
+                        (t (error "TEST must be a function or :AUTO.")))))
+    (remove-duplicates (xcol-values wsheet column :start start) :test test-fn)))
 
 
-(defmacro xdouniq ((e wsheet column &key (start 2) (test #'equalp) (select '())) &body body)
+(defmacro xdouniq ((e wsheet column &key (start 2) (test :auto) (select '())) &body body)
   (let ((filtered (gensym)))
     `(cclet* ((,filtered (if ,select
                            (xselect> ,wsheet ,select)
@@ -109,11 +36,19 @@
              ,@body))))
 
 
+(defun xcol-header (xarray title)
+  (let ((vec (make-array (array-dimension xarray 1) :displaced-to xarray)))
+    (position title vec :test #'string=)))
 
 
-
-  `(loop for ,e across (xcol-uniques ,wsheet ,column :start ,start :test ,test) doing
-         ,@body))
+;; Column designation: same as with XCELL.
+;; Row designation: index only. :(
+(defun xaref (xarray x y)
+  (let* ((xx (typecase x
+               (integer x)
+               (keyword (1- (letters-column x)))
+               (string  (xcol-header xarray x)))))
+    (aref xarray y xx)))
 
 
 ;; ----------------------------------------------------------------------
