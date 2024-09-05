@@ -123,3 +123,53 @@
   (words-capitalized
    (trim-edge-spaces
     (remove-double-spaces string))))
+
+
+(defun add-article (word)
+  (let* ((clean (trim-edge-spaces (remove-double-spaces word)))
+         (vowels '(#\a #\á #\e #\é #\i #\í #\o #\ó #\ö #\õ #\u #\ú #\ü #\û #\A #\Á #\E #\É #\I #\Í #\O #\Ó #\Ö #\Õ #\U #\Ú #\Ü #\Û))
+         (article (if (position (elt clean 0) vowels :test #'char=)
+                    "az" "a")))
+    (concatenate 'string article " " clean)))
+
+
+(defun group->word (number)
+  (let* ((ones     '("egy" "kettõ" "három" "négy" "öt" "hat" "hét" "nyolc" "kilenc"))
+         (tens     '("tíz" "húsz" "harminc" "negyven" "ötven" "hatvan" "hetven" "nyolcvan" "kilencven"))
+         (tens+    '("tizen" "huszon" "harminc" "negyven" "ötven" "hatvan" "hetven" "nyolcvan" "kilencven"))
+         (hundreds '("egyszáz" "kettõszáz" "háromszáz" "négyszáz" "ötszáz" "hatszáz" "hétszáz" "nyolcszáz" "kilencszáz"))
+         (result   '())
+         (a        (truncate number 100))
+         (b        (- (truncate number 10) (* a 10)))
+         (c        (- number (* a 100) (* b 10))))
+    (unless (zerop c)
+      (push (nth (1- c) ones) result))
+    (unless (zerop b)
+      (push (nth (1- b) (if (zerop c) tens tens+)) result))
+    (unless (zerop a)
+      (push (nth (1- a) hundreds) result))
+    (apply #'concatenate 'string result)))
+    
+
+(defun sub->words (number)
+  (unless number
+    (error "~a is not a number." number))
+  (when (> number 999999999)
+    (error "The value ~a is larger than 999 999 999."))
+  (if (zerop number)
+    "nulla"
+    (let* ((result '())
+           (a      (truncate number 1000000))
+           (b      (- (truncate number 1000) (* a 1000)))
+           (c      (- number (* a 1000000) (* b 1000))))
+      (unless (zerop c)
+        (push (group->word c) result))
+      (unless (zerop b)
+        (push (concatenate 'string (group->word b) "ezer-") result))
+      (unless (zerop a)
+        (push (concatenate 'string (group->word a) "millió-") result))
+      (let* ((final  (apply #'concatenate 'string result))
+             (length (length final)))
+        (if (char= (elt final (1- (length final))) #\-)
+          (subseq final 0 (- length 1))
+          final)))))
