@@ -51,6 +51,43 @@
     (aref xarray y xx)))
 
 
+(defun empty-cell-p (value)
+  (or (and (stringp value)
+           (string= value ""))
+      (and (symbolp value)
+           (eq value 'empty))))
+
+
+;; ----------------------------------------------------------------------
+;; Word stuff
+
+
+(defun select-bookmark (document bookmark &key (if-not-found :skip))
+  (multiple-value-bind (value error)
+      (ignore-errors
+        #m(select #m(item #p(bookmarks document) bookmark))
+        #p(selection #p(activewindow document)))
+    (case if-not-found
+      (:skip  value)
+      (:error (if (not error)
+                value
+                (error error)))
+      (t      (error ":IF-NO-FOUND should be either :SKIP or :ERROR.")))))
+
+
+(defun overwrite-bookmark (document bookmark string &key (if-not-found :skip))
+  ;; TYPETEXT will not overwrite selection if the new string is ""...
+  (cclet* ((notnull (if (string= string "")
+                      " "
+                      string))
+           (select  (select-bookmark document bookmark :if-not-found if-not-found)))
+    (when select
+      #m(typetext select notnull)
+      (when (string= string "")
+        #m(typebackspace select)))))
+
+
+
 ;; ----------------------------------------------------------------------
 ;; csd utility stuff
 
@@ -74,7 +111,7 @@
 
 (defun split-into-words (string &optional (separators *word-separators*))
   (labels ((non-space (string &optional (start 0))
-             (or (position-if #'(lambda (char)
+             (or (position-if #'(la mbda (char)
                                   (not (member char separators)))
                               string :start start)
                  (length string)))

@@ -73,20 +73,6 @@
     (loop for r from 1 below width doing
           (push (get-fee xarray r '(15 16 17 35 29) codes) result)
           (push (get-fee xarray r '(19 20 21 34 30) codes) result))
-#|          (push (list :code  (xaref xarray 15 r)
-                      :name  (xaref xarray 16 r)
-                      :sum   (xaref xarray 17 r)
-                      :start (when (> width 35)
-                               (xaref xarray 35 r))
-                      :end   (xaref xarray 29 r))
-                result)
-          (push (list :code  (xaref xarray 19 r)
-                      :name  (xaref xarray 20 r)
-                      :sum   (xaref xarray 21 r)
-                      :start (when (> width 34)
-                               (xaref xarray 34 r))
-                      :end   (xaref xarray 30 r))
-                result))|#
     (remove-duplicates result :test #'equalp)))
 
 
@@ -123,122 +109,133 @@
 
 ;; EZT ÚGY KÉNE MÓDOSÍTANI, HOGY CSAK AKKOR KERESSEN A FEJLÉCBEN/LÁBLÉCBEN, HA EXPLICITE JELEZVE VAN!
 (defparameter *t2*
-  `(("$01$" ,(const-fn ((a "Név"))
-               (clean-name a)))
+  `(("Név_bold"
+     ,(const-fn ((a "Név"))
+        (clean-name a)))
     
-    ("$02$" ,(const-fn ((a "Születési vezetéknév") (b "Születési utónév") (c "2.születési utónév"))
-               (clean-name (conc-with-single-spaces (list a b c)))))
+    ("Születési_név"
+     ,(const-fn ((a "Születési vezetéknév") (b "Születési utónév") (c "2.születési utónév"))
+        (clean-name (conc-with-single-spaces (list a b c)))))
     
-    ("$03$" ,(const-fn ((a "Születési hely") (b "Születési dátum"))
-               (concatenate 'string (clean-name a) ", " (excel-date-string b :words t))))
+    ("Születési_hely_idõ"
+     ,(const-fn ((a "Születési hely") (b "Születési dátum"))
+        (concatenate 'string (clean-name a) ", " (excel-date-string b :words t))))
 
-    ("$04$" ,(const-fn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
-               (clean-name (conc-with-single-spaces (list a b c)))))
+    ("Anyja_neve"
+     ,(const-fn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
+        (clean-name (conc-with-single-spaces (list a b c)))))
 
-    ("$05$" ,(const-fn ((a "Belépés dátuma"))
-               (excel-date-string a :words t)))
+;    ("$05$" ,(const-fn ((a "Belépés dátuma"))
+;               (excel-date-string a :words t)))
 
-    ("$06$" ,(const-fn ((a "Munkakör"))
-               (remove-double-spaces
-                (trim-edge-spaces a))))
+    ("munkakör"
+     ,(const-fn ((a "Munkakör"))
+        (remove-double-spaces
+         (trim-edge-spaces a))))
 
-    ("$07$" ,(const-fn ((a "szervezeti egys hosszú megnev."))
-               (remove-double-spaces 
-                (trim-edge-spaces a))))
+    ("Munkavégzés_helye"
+     ,(const-fn ((a "szervezeti egys hosszú megnev."))
+        (remove-double-spaces 
+         (trim-edge-spaces a))))
 
-    ("$08$" ,(const-fn ((a "Heti óra"))
-               (round a)))
+    ("heti_óra"
+     ,(const-fn ((a "Heti óra"))
+        (round a)))
 
-    ("$09$" ,(const-fn ((a "FEOR-sz.s."))
-               (remove-double-spaces 
-                (trim-edge-spaces a))))
+    ("FEOR"
+     ,(const-fn ((a "FEOR-sz.s."))
+        (remove-double-spaces 
+         (trim-edge-spaces a))))
 
-    ("$10$" ,(const-fn ((a "Bérrendsz. csop név"))
-               (remove-double-spaces 
-                (trim-edge-spaces a))))
+    ("fokozat"
+     ,(const-fn ((a "Bérrendsz. csop név"))
+        (remove-double-spaces 
+         (trim-edge-spaces a))))
 
-    ("$11$" ,(const-fn ((a "Belépés dátuma"))
-               (excel-date-string a :words t)))
-
-    ("$14$" ,(const-fn ((a "Vállalat hosszú megnevezése"))
-               (add-article
-                (first (split-into-words a)))))
-
-    ("$15$" ,(const-fn ((a "Kinevezés/szerzõdés jellege"))
-               (if (string= a "Határozatlan id.kine")
-                 ""
-                 "és 40. § (1)-(3) bekezdése ")))
-
-    ("$16$" ,(const-fn ((a "Kinevezés/szerzõdés jellege") (b "Szerz.vége"))
-               (if (string= a "Határozatlan id.kine")
-                 "határozatlan idejû"
-                 (format nil "tartósan távollévõ helyettesítése céljából határozott ideig, várhatóan ~a napjáig tartó" (excel-date-string b :words t)))))
-
-    ("$12$" ,(const-fn ((a "Vállalat hosszú megnevezése"))
-               (second (get-tk-data a))))
-
-    ("$13$" ,(const-fn ((a "Vállalat hosszú megnevezése"))
-               (second (get-tk-data a))))
-
-    ("$17$" ,(const-fn ((a "Vállalat hosszú megnevezése"))
-               (third (get-tk-data a))))
-
-    ("$18$" ,(const-fn ((a "Vállalat hosszú megnevezése"))
-               (fourth (get-tk-data a))))
+    ("kezdés_dátum"
+     ,(const-fn ((a "Belépés dátuma"))
+        (excel-date-string a :words t)))
     
-    ("$19$" ,(const-fn ((a "Név"))
-               (clean-name a)))
+    ("TK_névelõ"
+     ,(const-fn ((a "Vállalat hosszú megnevezése"))
+        (add-article
+         (first (split-into-words a)))))
 
-    ("$20$" ,(const-fn ((a "Vállalat hosszú megnevezése"))
-               (sixth (get-tk-data a))))
+    ("kinevezés_hivatkozás"
+     ,(const-fn ((a "Kinevezés/szerzõdés jellege"))
+        (if (string= a "Határozatlan id.kine")
+          ""
+          "és 40. § (1)-(3) bekezdése ")))
+
+    ("határozott_határozatlan"
+     ,(const-fn ((a "Kinevezés/szerzõdés jellege") (b "Szerz.vége"))
+        (if (string= a "Határozatlan id.kine")
+          "határozatlan idejû"
+          (format nil "tartósan távollévõ helyettesítése céljából határozott ideig, várhatóan ~a napjáig tartó" (excel-date-string b :words t)))))
+
+    ("Székhely_1"
+     ,(const-fn ((a "Vállalat hosszú megnevezése"))
+        (second (get-tk-data a))))
+
+    ("Székhely_2"
+     ,(const-fn ((a "Vállalat hosszú megnevezése"))
+        (second (get-tk-data a))))
+
+    ("TK_vezetõ"
+     ,(const-fn ((a "Vállalat hosszú megnevezése"))
+        (third (get-tk-data a))))
+
+    ("Pénzügyi_ellenjegyzõ"
+     ,(const-fn ((a "Vállalat hosszú megnevezése"))
+        (fourth (get-tk-data a))))
     
-    ("$21$" ,(const-fn ((a "Vállalat hosszú megnevezése"))
-               (round (fifth (get-tk-data a)))))
+    ("Dolgozó_aláírás"
+     ,(const-fn ((a "Név"))
+        (clean-name a)))
 
-    ("$22$" ,(const-fn ((a "Vállalat hosszú megnevezése"))
-               (string-upcase (first (split-into-words (first (get-tk-data a)))))))
+    ("Székhely_lábléc"
+     ,(const-fn ((a "Vállalat hosszú megnevezése"))
+        (sixth (get-tk-data a))))
+    
+    ("Törzskönyvi_azonosító"
+     ,(const-fn ((a "Vállalat hosszú megnevezése"))
+        (round (fifth (get-tk-data a)))))
 
-    ("$23$" ,(const-fn ((a "Vállalat hosszú megnevezése"))
-               (third (get-tk-data a))))
+    ("TK_nagybetûs"
+     ,(const-fn ((a "Vállalat hosszú megnevezése"))
+        (string-upcase (first (split-into-words (first (get-tk-data a)))))))
 
-    ("$24$" ,(fees-fn (fees)
-               (format nil "~,,' ,3:d" (getf (find-fee "1100" fees) :sum))))
+    ("$23$"
+     ,(const-fn ((a "Vállalat hosszú megnevezése"));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        (third (get-tk-data a))))
 
-    ("$25$" ,(fees-fn (fees)
-               (let ((sum (getf (find-fee "1100" fees) :sum)))
-                 (when sum
-                   (sub->words sum)))))
+    ("$24$"
+     ,(fees-fn (fees)
+        (format nil "~,,' ,3:d" (getf (find-fee "1100" fees) :sum))));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-#|    ("$26$" ,(const-fn ((szk "SZK") (bd "Belépés dátuma") (pv "Próbaidõ  vége"))
-               (let* ((pv-str (if (numberp pv)
-                                (excel-date-string pv :words t)
-                                "..."))
-                      (period (concatenate
-                               'string
-                               (excel-date-string bd :words t)
-                               "napjától "
-                               pv-str)))
-                 (if (string= szk "B1")
-                   ;; B1
-                   (if (string= pv "")
-                     ""
-                     (concatenate
-                      'string
-                      "A munka törvénykönyvérõl szóló 2012. évi I. törvény (a továbbiakban: Mt.) 45. § (5) bekezdése alapján a felek "
-                      period
-                      "napjáig terjedõ próbaidõt kötnek ki, amely idõtartam alatt a munkaviszonyt az Mt. 79. § (1) bekezdésének a) pontja alapján bármelyik fél azonnali hatályú felmondással – indokolás nélkül – megszüntetheti.~%"))
-                   ;; Egyéb személyi körök
-                   (if (string= pv "")
-                     "A ….-jogszabály-….alapján próbaidõ nem köthetõ ki.~%"
-                     (concatenate
-                      'string
-                      "A Púétv. 41. § (1) bekezdése alapján "
-                      period
-                      " napjáig tartó próbaidõt kötök ki, amely idõtartam alatt a köznevelési foglalkoztatotti jogviszonyt a Púétv. 41. § (4) bekezdése és 46. § (2) bekezdésének a) pontja alapján bármelyik fél indokolás nélkül azonnali hatállyal megszüntetheti.~%"))))))|#
-                   
+    ("$25$"
+     ,(fees-fn (fees)
+        (let ((sum (getf (find-fee "1100" fees) :sum)));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          (when sum
+            (sub->words sum)))))
+
+    ("Próbaidõ_bekezdés"
+     ,(const-fn ((szk "SZK") (bd "Belépés dátuma") (pv "Próbaidõ  vége"))
+        (let* ((pv-str (if (numberp pv) (excel-date-string pv :words t) "..."))
+               (period (concatenate 'string (excel-date-string bd :words t) " napjától " pv-str))
+               (b1-prob (concatenate 'string "A munka törvénykönyvérõl szóló 2012. évi I. törvény (a továbbiakban: Mt.) 45. § (5) bekezdése alapján a felek " period "napjáig terjedõ próbaidõt kötnek ki, amely idõtartam alatt a munkaviszonyt az Mt. 79. § (1) bekezdésének a) pontja alapján bármelyik fél azonnali hatályú felmondással – indokolás nélkül – megszüntetheti."))
+               (bx-prob (concatenate 'string "A Púétv. 41. § (1) bekezdése alapján " period " napjáig tartó próbaidõt kötök ki, amely idõtartam alatt a köznevelési foglalkoztatotti jogviszonyt a Púétv. 41. § (4) bekezdése és 46. § (2) bekezdésének a) pontja alapján bármelyik fél indokolás nélkül azonnali hatállyal megszüntetheti.")))
+          (if (string= szk "B1")
+            (if (empty-cell-p pv)
+              ""
+              b1-prob)
+            ;; Egyéb személyi körök
+            (if (empty-cell-p pv)
+              "A …-jogszabály-… alapján próbaidõ nem köthetõ ki."
+              bx-prob)))))
+    
 ))
 
-    
 
 #|
 HIÁNYZÓ ÉRTÉKEK
@@ -248,12 +245,18 @@ illetmény elemei        B2   B8   B9
 |#
 
 
-(defun fill-template (current xarray) ; 12%
-;  (print (get-fees xarray));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#|(defun fill-template (current xarray) ; 12%
   (dolist (pair *t2*)
     (destructuring-bind (old new-fn)
         pair
-      (word-replace-text current old (funcall new-fn xarray)))))
+      (word-replace-text current old (funcall new-fn xarray)))))|#
+
+(defun fill-template (current xarray)
+  (dolist (pair *t2*)
+    (destructuring-bind (bookmark value-fn)
+        pair
+      (overwrite-bookmark current bookmark ;; Ha nincs ilyen könyvjelzõ: hiba legyen vagy ugorja át? keyword
+                          (format nil "~a" (funcall value-fn xarray))))))
 
 
 (defconstant +wd-section-break-next-page+ 2)
@@ -261,12 +264,9 @@ illetmény elemei        B2   B8   B9
 
 
 (defun add-template (doc xarray) ; 46%
-  (let ((ps  (xaref xarray "SZK" 1))
-;        (tmp (tempfile))
-        )
+  (let ((ps  (xaref xarray "SZK" 1)))
     ;; Új temp file dok.sablon alapján
     (with-document (current :open-file (doctemplate ps) :close t)
-;      #m(saveas current tmp)
       ;; Adatok beillesztése táblázatból
       (fill-template current xarray)
       (if *page-break-needed*
@@ -287,9 +287,7 @@ illetmény elemei        B2   B8   B9
         #m(paste head-trg)
         #m(copy  foot-src)
         #m(paste foot-trg)
-        (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t)))
-;    (delete-file tmp)
-    )
+        (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t))))
     ;; Eredmény állapotának mentése
     #m(save doc)
     ;; Progress bar
@@ -344,6 +342,64 @@ illetmény elemei        B2   B8   B9
       (print #p(count sections))
       (print #p(text #p(range header1)))
       (print #p(text #p(range footer1))))))
+
+
+(defun test03 ()
+  (with-document (doc :open-file *rst*)
+    (cclet* ((content #p(content doc))
+             (text    #p(text content)))
+      text)))
+
+(defun test04 ()
+  (let* ((old "munkáltató belsõ szabályai, a munkaköri leírása, valamint a munkáltatói jogkör gyakorlójának utasításai határozzák meg. A Púétv. 96. § (1) bekezdése, 97. § (1) és (2) bekezdése alapján besorolom Önt Pedagógus I. fokozatba. Havi illetményét 2024. szeptember 5. napi hatállyal a Púétv. 98. § (2) bekezdése, valamint a pedagógusok új életpályájáról szóló 2023. évi LII. törvény végrehajtásáról szóló 401/2023. (VIII. 30.) Korm. rendelet (a továbbiakban: Púétv. vhr.) 88/A. § (1) bekezdése alapján az alábbiak szerint állapítom")
+         (new "SUXORZZZZZ!")
+         (older (carriage-return old))
+         (newer (carriage-return new)))
+    (with-document (doc :open-file *rst*)
+      #m(saveas doc "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\Érdi TK 2024.09.09. #01 B2____.docx")
+      (cclet* ((selection #p(selection #p(activewindow doc)))
+               (contents  #p(text #p(content doc))))
+        (let* ((start (search older contents :test #'string=))
+               (end   (when start
+                        (+ start (length older)))))
+          (when start
+            #m(setrange selection start end)
+            #m(typetext selection newer))
+          #m(save doc))))))
+
+
+
+(defun test05 ()
+  (let* ((old "munkáltató belsõ szabályai, a munkaköri leírása, valamint a munkáltatói jogkör gyakorlójának utasításai határozzák meg. A Púétv. 96. § (1) bekezdése, 97. § (1) és (2) bekezdése alapján besorolom Önt Pedagógus I. fokozatba. Havi illetményét 2024. szeptember 5. napi hatállyal a Púétv. 98. § (2) bekezdése, valamint a pedagógusok új életpályájáról szóló 2023. évi LII. törvény végrehajtásáról szóló 401/2023. (VIII. 30.) Korm. rendelet (a továbbiakban: Púétv. vhr.) 88/A. § (1) bekezdése alapján az alábbiak szerint állapítom")
+         (new "SUXORZZZZZ!"))
+    (with-document (doc :open-file *rst*)
+      #m(saveas doc "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\Érdi TK 2024.09.09. #01 B2____.docx")
+      (ccom::word-replace1st doc old new)
+      #m(save doc))))
+
+
+(defun test06 ()
+  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\bookmarks.docx")
+    #m(saveas doc "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\bookmarks___.docx")
+    (overwrite-bookmark doc "Anyja_neve" "Both Péter Árpédné")
+    (overwrite-bookmark doc "TK_nagybetûs" "MACZKÓFALVI")
+    (overwrite-bookmark doc "Születési_hely_idõ" "Barlanglak, 1848.03.15.")
+    #m(save doc)))
+
+
+(defun test07 ()
+  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\Pedagógus_kinevezési okmány.docx")
+    (cclet* ((bookmarks #p(bookmarks doc))
+             (count     #p(count bookmarks)))
+      (loop for i from 1 upto count doing
+            (print #p(name #m(item bookmarks i)))))))
+             
+
+(defun test08 (bookmark)
+  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\Pedagógus_kinevezési okmány.docx")
+    (multiple-value-bind (value error)
+        (ignore-errors #m(item #p(bookmarks doc) bookmark))
+      (typep error 'error))))
 
 
 
