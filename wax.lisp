@@ -111,7 +111,7 @@
 
 (defun split-into-words (string &optional (separators *word-separators*))
   (labels ((non-space (string &optional (start 0))
-             (or (position-if #'(la mbda (char)
+             (or (position-if #'(lambda (char)
                                   (not (member char separators)))
                               string :start start)
                  (length string)))
@@ -210,3 +210,7 @@
         (if (char= (elt final (1- (length final))) #\-)
           (subseq final 0 (- length 1))
           final)))))
+
+
+(defun currency (number)
+  (format nil "~,,' ,3:d" (round number)))
