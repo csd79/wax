@@ -7,8 +7,8 @@
 (asdf:load-system "wax")
 
 (lw:deliver 'wax:start
-    "c:\\Users\\cselovszkid\\common-lisp\\wax\\wax_v0.15.exe"
-    1
+    "c:\\Users\\cselovszkid\\common-lisp\\wax\\wax_v0.16.exe"
+    5
     :interface :capi
     :console :io
     :multiprocessing t
@@ -17,6 +17,5 @@
     :keep-eval t
     :keep-lisp-reader t
     :symbol-names-action nil
-;    :startup-bitmap-file nil
-    :startup-bitmap-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\img\\waxman_dither.bmp" ; NO TRANSPARRENCY!!!!!!!!!
+    :startup-bitmap-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\img\\waxman_dither.bmp"
     :kill-dspec-table nil)

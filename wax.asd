@@ -1,11 +1,12 @@
 (defsystem "wax"
   :description "Scripting environment for MS Office apps"
   :author      "Denes Cselovszki <denes.cselovszki@gmail.com>"
-  :version     "0.15"
+  :version     "0.16"
   :depends-on  ("ccom" "cref" "cl-ppcre" "local-time")
   :serial      t
   :components  ((:file "package")
                 (:file "fli-templates")
                 (:file "utilities")
+                (:file "gui")
                 (:file "wax")
                 (:file "script")))

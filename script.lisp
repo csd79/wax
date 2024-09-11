@@ -8,11 +8,10 @@
 ;;; Ki/bemeneti fájlok
 
 
-(defparameter *xls-query* "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\wax-EXPORT.XLSX")
-(defparameter *xls-tks* "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\TK vezetõk.xlsx")
-(defparameter *doc-template-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\")
-
-(defparameter *out-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmény\\")
+(defparameter *xls-query*        nil)
+(defparameter *doc-template-dir* nil)
+(defparameter *out-dir*          nil)
+(defparameter *xls-tks*          nil)
 
 (defparameter *templates-ps*
   '(
@@ -47,6 +46,8 @@
 
 
 (defparameter *page-break-needed* nil)
+(defparameter *tab* #\tab)
+(defparameter *cr*  #\return)
 
 
 (defun get-fee-row (xarray row cols codes)
@@ -256,7 +257,7 @@
     ("Gyakornoki_idõ_bekezdés"
      ,(vals-fn ((besor "Bérrendsz. csop név") (bd "Belépés dátuma") (vh :ai)) ;;;;;; AJ!!!!!!!!!
         (let ((bd-str (excel-date-string bd :words t))
-              (vh-str (excel-date-string vh :words t)))
+              (vh-str (excel-date-string bd :words t)))  ;;;;;;;;;;;;;;;;;;;;;; itt most kezdõ dátum van
           (if (string= besor "Gyakornok")
             (concatenate 'string "A  pedagógusok új életpályájáról szóló 2023. évi LII. törvény végrehajtásáról szóló 401/2023. (VIII. 30.) Korm. rendelet (a továbbiakban: Púétv. vhr.) 37. § (1)-(13) bekezdése alapján az Ön gyakornoki ideje " bd-str " napjától ...  napjáig tart, minõsítõ vizsgát " vh-str " napjáig köteles tenni. Amennyiben a minõsítõ vizsgája sikeres, a Púétv. vhr. 37. § (8) bekezdése alapján Önt Pedagógus I. fokozatba kell besorolni.")
             ""))))
@@ -323,7 +324,7 @@
 (defconstant +wd-header-footer-first-page+ 2)
 
 
-(defun add-template (doc xarray) ; 46%
+(defun add-template (doc xarray)
   (let ((ps  (xaref xarray "SZK" 1)))
     ;; Új temp file dok.sablon alapján
     (with-document (current :open-file (doctemplate ps) :close t)
@@ -349,84 +350,87 @@
         #m(paste foot-trg)
         (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t))))
     ;; Eredmény állapotának mentése
-    #m(save doc)
-    ;; Progress bar
-    (format t "~a~%" (xaref xarray "SZTSZ" 1)))
+    #m(save doc))
 
 
-(defun start ()
+(defun process ()
   (with-workbook (wbook :open-file *xls-query* :read-only t :wsvars (ws-query) :close t)
     (let ((tk-head "Vállalat hosszú megnevezése"))
-      ;; Iteráció TK-kon.
-      (xdouniq (tk ws-query tk-head)
-        ;; Iteráció személyi körökön.
-        (xdouniq (ps ws-query "SZK" :select `((,tk-head ,tk)))
-          ;; Új dokumentum létrehozása, mentés másként
-          (with-document (newdoc :close t :save t)
-            #m(saveas2 newdoc (newfile tk ps))
-            ;; Iteráció SZTSZ-eken.
-            ;; Oldaltörés inicializálása.
-            (setf *page-break-needed* nil)
-            (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
-              ;; SZTSZ adatainak beírása a dokumentumba.
-              (add-template newdoc
-                            #p(value2 (used-range (xselect> ws-query
-                                                            `(("SZTSZ" ,sztsz)))))))))))))
+      ;; Progress bar
+      (with-progress ("Dokumentumok generálása" move dump (length (xcol-uniques ws-query "SZTSZ")))
+        ;; Iteráció TK-kon.
+        (xdouniq (tk ws-query tk-head)
+          (dump (format nil "~%----------------------------------------------------------------------~%~a~%----------------------------------------------------------------------~%~%" tk))
+          ;; Iteráció személyi körökön.
+          (xdouniq (ps ws-query "SZK" :select `((,tk-head ,tk)))
+            (dump (format nil "--------------------------------------------------~%~a személyi kör~%~%" ps))
+            ;; ha a személyi körhöz nincs dok.sablon:
+            (if (not (position ps *templates-ps* :test #'string= :key #'first))
+              (progn
+                ;; Figyelmeztetés
+                (dump (format nil "~a személyi körhöz nincs dokumentumsablon!~%" ps))
+                ;; Progress bar átugorja a hiányzó SZTSZ-eket.
+                (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
+                  (dump (format nil "Kihagyás: ~a SZTSZ~%" sztsz))
+                  (move)))
+              ;; ...ha van:
+              ;; Új dokumentum létrehozása, mentés másként
+              (with-document (newdoc :close t :save t)
+                #m(saveas2 newdoc (newfile tk ps))
+                ;; Iteráció SZTSZ-eken.
+                ;; Oldaltörés inicializálása.
+                (setf *page-break-needed* nil)
+                (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
+                  (dump (format nil "SZTSZ: ~a~%" sztsz))
+                  ;; SZTSZ adatainak beírása a dokumentumba.
+                  (add-template newdoc
+                                #p(value2 (used-range (xselect> ws-query
+                                                                `(("SZTSZ" ,sztsz))))))
+                  (move))))))
+        (dump (format nil "~%~%~%~%"))))))
 
 
 ;;; ----------------------------------------------------------------------
 ;;; Sandbox
 
 
+(defun test ()
+  (let ((*xls-query*        "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\wax-EXPORT_orig.XLSX")
+        (*doc-template-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\")
+        (*out-dir*          "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmény\\")
+        (*xls-tks*          "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\TK vezetõk.xlsx"))
+    (process)))
 
 
-(defun test01 ()
-  (with-workbook (wbook :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\wax-EXPORT.XLSX"
-                        :wsvars (sap) :close t)
-    (let* ((arr  #p(value2 (used-range (xselect> sap '(("SZTSZ" "10209992"))))))
-           (fees (get-fees arr)))
-      (dolist (code cref::*puetv-b1b2b8b9-illetmenyelemek-2024-sorrend*)
-        (let ((found (find-fee code fees)))
-          (when found
-            (print found)))))))
-
-(defun test02 (code)
-  (fee-name code cref::*puetv-b1b2b8b9-illetmenyelemek-2024*))
 
 
-(defparameter *tab* #\tab)
-(defparameter *cr*  #\return)
 
-(defun test03 ()
-  (with-workbook (wbook :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\wax-EXPORT.XLSX"
-                        :wsvars (sap) :close t)
-    (let* ((bd      2958465.0D0)
-           (arr     #p(value2 (used-range (xselect> sap '(("SZTSZ" "10209992"))))))
-           (fees    (get-fees arr))
-           (ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2024-sorrend*))
-           (total   0)
-           (digest  (mapcar #'(lambda (fee)
-                                (destructuring-bind (&key code name sum start end) fee
-                                  (declare (ignore name))
-                                  (incf total sum)
-                                  (append
-                                   (list (fee-name code cref::*puetv-b1b2b8b9-illetmenyelemek-2024*)
-                                         (currency sum))
-                                   (when (string/= code "1P00")
-                                     (list
-                                      (excel-date-string (or start bd) :words t)))
-                                   (when (and (string/= code "1P00") end)
-                                     (list
-                                      (excel-date-string end :words t))))))
-                            ordered))
-           (lines  '()))
-      (dolist (cookin digest)
-        (destructuring-bind (name sum &optional start end) cookin
-          (push (format nil "~a:~C~a~CFt~C" name *tab* sum *tab* *cr*) lines)
-          (when start
-            (if end
-              (push (format nil "megállapításának idõszaka: ~a napjától ~a napjáig~C" start end *cr*) lines)
-              (push (format nil "megállapításának idõszaka: ~a napjától~C" start *cr*) lines)))))
-      (push (format nil "Illetmény összesen:~C~a~CFt~C" *tab* (currency total) *tab* *cr*) lines)
-      (apply #'concatenate 'string
-             (nreverse lines)))))
+
+
+(defun start ()
+  (let ((sap   "")
+        (temps "")
+        (out   "")
+        (tks   ""))
+  (wg-window
+   "Kinevezés-generáló"
+   (wg-file-selector "SAP lekérdezés eredménye"
+                     "*.xlsx"
+                     '("Excel fájlok" "*.xlsx" "Minden fájl" "*.*")
+                     #'(lambda (text &rest rest)
+                         (setf sap text)))
+   (wg-dir-selector "Dokumentumsablonok mappája"
+                    #'(lambda (text &rest rest)
+                        (setf temps text)
+                        (setf tks   (concatenate 'string temps "TK vezetõk.xlsx"))))
+   (wg-dir-selector "Generált dokumentumok mappája"
+                    #'(lambda (text &rest rest)
+                        (setf out text)))
+   (wg-button "Dokumentumok generálása"
+              #'(lambda (if)
+                  (let ((*xls-query*        sap)
+                        (*doc-template-dir* temps)
+                        (*out-dir*          out)
+                        (*xls-tks*          tks))
+                    (process)))))))
+
