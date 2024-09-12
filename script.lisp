@@ -58,6 +58,7 @@
                                     (xaref xarray col row))))
                    cols codes))))
 
+
 (defun get-fees (xarray)
   (let ((result '())
         (height  (array-dimension xarray 0))
@@ -113,14 +114,13 @@
          ,@body-only))))
 
 
-       
-
 (defun read-tk-data (tk)
   (with-workbook (wbook :open-file *xls-tks* :read-only t :wsvars (help) :close t)
     (let ((row (locate-row help "TK" tk #'string=)))
       (cons tk (mapcar #'(lambda (title)
                            (xcell help title row))
                        '("Helységnév" "TK ig" "Gazdasági vez." "Törzsszám" "Székhely"))))))
+
 
 (defparameter *tk-data* nil)
 
@@ -131,24 +131,27 @@
   *tk-data*)
 
 
+(defconstant +wd-header-footer-first-page+ 2)
+
+
 (defparameter *t2*
-  `(("Név_bold"
+  `(("Iktatószám: …………………………^M^M$………………$^M"
      ,(vals-fn ((a "Név"))
         (clean-name a)))
     
-    ("Születési_név"
+    ("Születési neve: $………………$^M"
      ,(vals-fn ((a "Születési vezetéknév") (b "Születési utónév") (c "2.születési utónév"))
         (clean-name (conc-with-single-spaces (list a b c)))))
     
-    ("Születési_hely_idõ"
+    ("Születési helye, ideje: $………………$^M"
      ,(vals-fn ((a "Születési hely") (b "Születési dátum"))
         (concatenate 'string (clean-name a) ", " (excel-date-string b :words t))))
 
-    ("Anyja_neve"
+    ("Anyja neve: $………………$^M"
      ,(vals-fn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
         (clean-name (conc-with-single-spaces (list a b c)))))
 
-    ("munkakör"
+#|    ("munkakör"
      ,(vals-fn ((a "Munkakör"))
         (remove-double-spaces
          (trim-edge-spaces a))))
@@ -195,13 +198,13 @@
 
     ("Székhely_1"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
-        (second (get-tk-data a))))
+        (second (get-tk-data a))))|#
 
-    ("Székhely_2"
+    ("Pénzügyileg ellenjegyzem. ^M^M$………………$, "
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (second (get-tk-data a))))
 
-    ("TK_vezetõ"
+#|    ("TK_vezetõ"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (third (get-tk-data a))))
 
@@ -211,35 +214,29 @@
     
     ("Dolgozó_aláírás"
      ,(vals-fn ((a "Név"))
-        (clean-name a)))
+        (clean-name a)))|#
 
-    ("Székhely_lábléc"
+    ("Székhelye: $………………$^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
-        (sixth (get-tk-data a))))
+        (sixth (get-tk-data a)))
+     ,#'(lambda (doc)
+          (ccom::footer doc 1 +wd-header-footer-first-page+)))
+
+;          #p(range #m(item #p(footers #p(first #p(sections doc)))
+;                           +wd-header-footer-first-page+))))
     
-    ("Törzskönyvi_azonosító"
+#|    ("Törzskönyvi_azonosító"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
-        (round (fifth (get-tk-data a)))))
+        (round (fifth (get-tk-data a)))))|#
 
-    ("TK_nagybetûs"
+    ("$………………$^MTANKERÜLETI^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
-        (string-upcase (first (split-into-words (first (get-tk-data a)))))))
+        (string-upcase (first (split-into-words (first (get-tk-data a))))))
+     ,#'(lambda (doc)
+          (ccom::header doc 1 +wd-header-footer-first-page+)))
+     
 
-#|    ("$23$"
-     ,(vals-fn ((a "Vállalat hosszú megnevezése"));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        (third (get-tk-data a))))
-
-    ("$24$"
-     ,(vals-fn () :fees fees
-        (currency (getf (find-fee "1100" fees) :sum))));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-    ("$25$"
-     ,(vals-fn () :fees fees
-        (let ((sum (getf (find-fee "1100" fees) :sum)));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-          (when sum
-            (sub->words sum)))))|#
-
-    ("Próbaidõ_bekezdés"
+#|    ("Próbaidõ_bekezdés"
      ,(vals-fn ((szk "SZK") (bd "Belépés dátuma") (pv "Próbaidõ  vége"))
         (let* ((pv-str (if (numberp pv) (excel-date-string pv :words t) "..."))
                (period (concatenate 'string (excel-date-string bd :words t) " napjától " pv-str))
@@ -305,23 +302,69 @@
                   (push (format nil "megállapításának idõszaka: ~a napjától~C" start *cr*) lines)))))
           (push (format nil "Illetmény összesen:~C~a~CFt~C" *tab* (currency total) *tab* *cr*) lines)
           (apply #'concatenate 'string
-                 (nreverse lines)))))
+                 (nreverse lines)))))|#
 
+#|    ("$23$"
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        (third (get-tk-data a))))
+
+    ("$24$"
+     ,(vals-fn () :fees fees
+        (currency (getf (find-fee "1100" fees) :sum))));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+    ("$25$"
+     ,(vals-fn () :fees fees
+        (let ((sum (getf (find-fee "1100" fees) :sum)));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          (when sum
+            (sub->words sum)))))|#
 ))
 
 
-
-
-(defun fill-template (current xarray)
+#|(defun fill-template (current xarray)
   (dolist (pair *t2*)
     (destructuring-bind (bookmark value-fn)
         pair
       (overwrite-bookmark current bookmark
-                          (format nil "~a" (funcall value-fn xarray))))))
+                          (format nil "~a" (funcall value-fn xarray))))))|#
+
+
+(defun temp-target (temp)
+  (let* ((external (ccom::carriage-return temp))
+         (start    (position #\$ external))
+         (end      (position #\$ external :from-end t))
+         (clean    (concatenate
+                    'string
+                    (subseq external 0 start)
+                    (subseq external (1+ start) end)
+                    (subseq external (1+ end)))))
+    (values clean start (1- end))))
+
+
+(defun fill-template (current xarray)
+  (dolist (desc *t2*)
+    (destructuring-bind (temp val-fn &optional range-fn)
+        desc
+      (multiple-value-bind (clean start-offset end-offset)
+          (temp-target temp)
+        (cclet* ((range  (if range-fn
+                           (funcall range-fn current)
+                           #p(content current)))
+                 (found  (ccom::range-find-text range clean)))
+          (when found
+            (cclet* ((start (+ found start-offset))
+                     (end   (+ found end-offset))
+                     (text  (format nil "~a" (funcall val-fn xarray))))
+              (ccom::selection-overwrite range start end text))))))))
+
+
+#|                 (select #p(selection #p(activewindow current))))
+          (when found
+            #m(setrange select start end)
+            #m(typetext select
+                        )))))))|#
 
 
 (defconstant +wd-section-break-next-page+ 2)
-(defconstant +wd-header-footer-first-page+ 2)
 
 
 (defun add-template (doc xarray)
@@ -395,7 +438,7 @@
 
 
 (defun test ()
-  (let ((*xls-query*        "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\wax-EXPORT_orig.XLSX")
+  (let ((*xls-query*        "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\wax-EXPORT.XLSX")
         (*doc-template-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\")
         (*out-dir*          "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmény\\")
         (*xls-tks*          "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\TK vezetõk.xlsx"))
@@ -434,3 +477,16 @@
                         (*xls-tks*          tks))
                     (process)))))))
 
+
+
+
+(defun test01 ()
+  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\bookmarks.docx" :save t)
+    (ccom::word-replace1st doc "köre:gyógy" "ZAZZZ")
+    (ccom::word-replace1st doc "tart, minõ" "KluFF")
+    (ccom::word-replace1st doc "zem. Érd3$" "SSSSSDEG")))
+
+
+(defun test02 ()
+  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\bookmarks.docx" :save t)
+    (ccom::range-find-text #p(content doc) "Mackó Lackó")))

@@ -7,7 +7,7 @@
 (asdf:load-system "wax")
 
 (lw:deliver 'wax:start
-    "c:\\Users\\cselovszkid\\common-lisp\\wax\\wax_v0.16.exe"
+    "c:\\Users\\cselovszkid\\common-lisp\\wax\\wax_v0.17.exe"
     5
     :interface :capi
     :console :io
