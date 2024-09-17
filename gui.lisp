@@ -103,6 +103,16 @@
    ))
 
 
+(defun wg-options (label callback items)
+  (make-instance
+   'capi:option-pane
+   :title label
+   :items items
+   :selected-item (first items)
+   :selection-callback callback
+   ))
+
+
 (defun wg-button (label callback)
   (make-instance
    'capi:push-button-panel

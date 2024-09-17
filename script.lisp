@@ -5,11 +5,10 @@
 
 
 ;;; ----------------------------------------------------------------------
-;;; Ki/bemeneti fájlok
+;;; Globális változók
 
 
 (defparameter *xls-tks-filename* "TK vezetõk.xlsx")
-
 
 (defparameter *xls-query*        "")
 (defparameter *xls-query2*       "")
@@ -17,22 +16,85 @@
 (defparameter *out-dir*          "")
 (defparameter *xls-tks*          "")
 
-(defparameter *templates-ps*
+(defparameter *doctype*          "")
+
+
+;;; ----------------------------------------------------------------------
+;;; Generálható dokumentumtípusok
+
+
+(defun szk-fn (szk)
+  #'(lambda (xarray)
+      (string= (xaref xarray "SZK" 1) szk)))
+
+(defun b1-noks-fn ()
+  #'(lambda (xarray)
+      (and (string= (xaref xarray "SZK" 1) "B1")
+           (member (xaref xarray "Munkakör" 1) '("4336" "4211" "4214") :test #'string=))))
+
+(defun b1-kiseg-fn ()
+  #'(lambda (xarray)
+      (and (string= (xaref xarray "SZK" 1) "B1")
+           (not (member (xaref xarray "Munkakör" 1) '("4336" "4211" "4214") :test #'string=)))))
+
+(defparameter *doctypes*
+  `(
+    (:name "Kinevezések"
+     :dir  "Kinevezések"
+     :szk
+     ((,(szk-fn "B2") "Pedagógus"       "Pedagógus_kinevezési okmány.docx")
+      (,(szk-fn "B8") "PedNOKS"         "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
+      (,(szk-fn "B9") "NOKS"            "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
+      (,(b1-noks-fn)  "Köznev.NOKS"     "Munkaszerzõdés_noks munkakör_munkavállaló.docx") 
+      (,(b1-kiseg-fn) "Köznev.kisegítõ" "Munkaszerzõdés_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))
+
+    (:name "Egyoldalú kinevezésmódosítások"
+     :dir  "Egyoldalú kinevezésmódosítások"
+     :szk
+     ((,(szk-fn "B2") "Pedagógus"       "Kinevezésmódosítás_egyoldalú_pedagógus.docx")
+      (,(szk-fn "B8") "PedNOKS"         "Kinevezésmódosítás_egyoldalú_ped. szakkép. noks.docx")
+      (,(szk-fn "B9") "NOKS"            "Kinevezésmódosítás_egyoldalú_nem ped. szakkép. noks.docx")))
+
+    (:name "Kétoldalú kinevezésmódosítás"
+     :dir  "Kétoldalú kinevezésmódosítás"
+     :szk
+     ((,(szk-fn "B2") "Pedagógus"       "Kinevezésmódosítás_kétoldalú_pedagógus.docx")
+      (,(szk-fn "B8") "PedNOKS"         "Kinevezésmódosítás_kétoldalú_ped. szakkép. noks.docx")
+      (,(szk-fn "B9") "NOKS"            "Kinevezésmódosítás_kétoldalú_nem ped. szakkép. noks.docx")
+      (,(b1-noks-fn)  "Köznev.NOKS"     "Munkaszerzõdés-módosítás_noks munkakör_munkavállaló.docx")
+      (,(b1-kiseg-fn) "Köznev.kisegítõ" "Munkaszerzõdés-módosítás_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))))
+
+
+#|(defparameter *templates-ps*
   '(
 ;    ("B1" "")
     ("B2" "Pedagógus_kinevezési okmány.docx")
 ;    ("B8" "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
 ;    ("B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
-    ))
+    ))|#
 
 
 ;;; ----------------------------------------------------------------------
 ;;; Sablonok kezelése
 
 
-(defun doctemplate (ps)
+(defun select-doctype (xarray)
+  (when (string/= *doctype* "")
+    (let* ((type (find *doctype* *doctypes* :test #'string= :key #'(lambda (rec)
+                                                                     (getf rec :name))))
+           (szk  (find-if #'identity (getf type :szk) :key #'(lambda (rec)
+                                                               (funcall (first rec) xarray)))))
+      (list (getf type :dir)
+            (second szk)
+            (third szk)))))
+; => ("Egyoldalú kinevezésmódosítások" "PedNOKS" "Kinevezésmódosítás_egyoldalú_ped. szakkép. noks.docx")
+
+(defun doctemplate (xarray)
   (concatenate 'string *doc-template-dir*
                (second (find ps *templates-ps* :key #'first :test #'string=))))
+
+
+
 
 (defun newfile (tk ps)
   (format nil "~a~a ~a ~a ~a"
@@ -351,32 +413,31 @@
 
 
 (defun add-template (doc xarray)
-  (let ((ps  (xaref xarray "SZK" 1)))
-    ;; Új temp file dok.sablon alapján
-    (with-document (current :open-file (doctemplate ps) :read-only t :close t)
-      ;; Adatok beillesztése táblázatból
-      (fill-template current xarray)
-      (if *page-break-needed*
-        #m(insertbreak (end-of-doc doc) +wd-section-break-next-page+)
-        (setf *page-break-needed* t))
-      ;; Jelen SZTSZ dok.törzs másolása
-      #m(select current)
-      #m(copy #p(selection #p(parent current)))
-      #m(paste (end-of-doc doc))
-      ;; 1. oldali fejléc/lábléc másolása
-      (cclet* ((sect-src #p(first #p(sections current)))
-               (sect-trg #p(last  #p(sections doc)))
-               (head-src #p(range #m(item #p(headers sect-src) +wd-header-footer-first-page+)))
-               (head-trg #p(range #m(item #p(headers sect-trg) +wd-header-footer-first-page+)))
-               (foot-src #p(range #m(item #p(footers sect-src) +wd-header-footer-first-page+)))
-               (foot-trg #p(range #m(item #p(footers sect-trg) +wd-header-footer-first-page+))))
-        #m(copy  head-src)
-        #m(paste head-trg)
-        #m(copy  foot-src)
-        #m(paste foot-trg)
-        (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t))))
-    ;; Eredmény állapotának mentése
-    #m(save doc))
+  ;; Új temp file dok.sablon alapján
+  (with-document (current :open-file (doctemplate xarray) :read-only t :close t)
+    ;; Adatok beillesztése táblázatból
+    (fill-template current xarray)
+    (if *page-break-needed*
+      #m(insertbreak (end-of-doc doc) +wd-section-break-next-page+)
+      (setf *page-break-needed* t))
+    ;; Jelen SZTSZ dok.törzs másolása
+    #m(select current)
+    #m(copy #p(selection #p(parent current)))
+    #m(paste (end-of-doc doc))
+    ;; 1. oldali fejléc/lábléc másolása
+    (cclet* ((sect-src #p(first #p(sections current)))
+             (sect-trg #p(last  #p(sections doc)))
+             (head-src #p(range #m(item #p(headers sect-src) +wd-header-footer-first-page+)))
+             (head-trg #p(range #m(item #p(headers sect-trg) +wd-header-footer-first-page+)))
+             (foot-src #p(range #m(item #p(footers sect-src) +wd-header-footer-first-page+)))
+             (foot-trg #p(range #m(item #p(footers sect-trg) +wd-header-footer-first-page+))))
+      #m(copy  head-src)
+      #m(paste head-trg)
+      #m(copy  foot-src)
+      #m(paste foot-trg)
+      (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t)))
+  ;; Eredmény állapotának mentése
+  #m(save doc))
 
 
 (defun process ()
@@ -402,14 +463,14 @@
               ;; ...ha van:
               ;; Új dokumentum létrehozása, mentés másként
               (with-document (newdoc :close t :save t)
-                #m(saveas2 newdoc (newfile tk ps))
+                #m(saveas2 newdoc (newfile tk ps)) ; <------------------------------------ ezt valahogy be kéne tenni az SZTSZ ciklusba, és külön értékek helyett a xarray-t adni paraméterként, mert nem csak a PS-bõl filózzák ki a fájlnevet
                 ;; Iteráció SZTSZ-eken.
                 ;; Oldaltörés inicializálása.
                 (setf *page-break-needed* nil)
                 (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
                   (dump (format nil "SZTSZ: ~a~%" sztsz))
                   ;; SZTSZ adatainak beírása a dokumentumba.
-                  (add-template newdoc
+                  (add-template newdoc            ; <--------------------------------------------
                                 #p(value2 (used-range (xselect> ws-query
                                                                 `(("SZTSZ" ,sztsz))))))
                   (move))))))
@@ -454,6 +515,12 @@
   (load-state)
   (wg-window
    "Kinevezés-generáló"
+   (wg-options "Dokumentumtípus választása"
+               #'(lambda (text &rest rest)
+                   (setf *doctype* text))
+               (mapcar #'(lambda (rec)
+                           (getf rec :name))
+                       *doctypes*))
    (wg-file-selector "SAP lekérdezés eredménye"
                      "*.xlsx"
                      '("Excel fájlok" "*.xlsx" "Minden fájl" "*.*")

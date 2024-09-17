@@ -58,3 +58,8 @@ Gyakornoki idő: oszlop hiányzik a lekérdezésből!
 
 -----------------------------------------------------------------------------
 
+Tesztcsomag:
+ legutóbbi B2 kinevezés-sablonokat megmagyarázni a programnak
+ B2 teszhez összehasonlítót írni
+ megírni a részt ami megkülönbözteti a kinevezést a módosításoktól
+ és az ami megkülönbözteti a B1 NOKS-ot a kisegítőtől
