@@ -1,1 +1,1 @@
-(:QUERY1 "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\EXPORT_B2_kinevezés.XLSX" :QUERY2 "" :TEMPDIR "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\" :OUTDIR "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmény\\")
+(:DOCTYPE "Kinevezések" :QUERY1 "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\wax-EXPORT.XLSX" :QUERY2 "" :TEMPDIR "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\" :OUTDIR "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmények\\")

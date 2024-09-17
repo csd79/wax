@@ -42,27 +42,27 @@
     (:name "Kinevezések"
      :dir  "Kinevezések"
      :szk
-     ((,(szk-fn "B2") "Pedagógus"       "Pedagógus_kinevezési okmány.docx")
-      (,(szk-fn "B8") "PedNOKS"         "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
-      (,(szk-fn "B9") "NOKS"            "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
-      (,(b1-noks-fn)  "Köznev.NOKS"     "Munkaszerzõdés_noks munkakör_munkavállaló.docx") 
-      (,(b1-kiseg-fn) "Köznev.kisegítõ" "Munkaszerzõdés_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))
+     ((,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
+      (,(szk-fn "B8") "B8" "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
+      (,(szk-fn "B9") "B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
+      (,(b1-noks-fn)  "B1" "Munkaszerzõdés_noks munkakör_munkavállaló.docx") 
+      (,(b1-kiseg-fn) "B1" "Munkaszerzõdés_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))
 
     (:name "Egyoldalú kinevezésmódosítások"
      :dir  "Egyoldalú kinevezésmódosítások"
      :szk
-     ((,(szk-fn "B2") "Pedagógus"       "Kinevezésmódosítás_egyoldalú_pedagógus.docx")
-      (,(szk-fn "B8") "PedNOKS"         "Kinevezésmódosítás_egyoldalú_ped. szakkép. noks.docx")
-      (,(szk-fn "B9") "NOKS"            "Kinevezésmódosítás_egyoldalú_nem ped. szakkép. noks.docx")))
+     ((,(szk-fn "B2") "B2" "Kinevezésmódosítás_egyoldalú_pedagógus.docx")
+      (,(szk-fn "B8") "B8" "Kinevezésmódosítás_egyoldalú_ped. szakkép. noks.docx")
+      (,(szk-fn "B9") "B9" "Kinevezésmódosítás_egyoldalú_nem ped. szakkép. noks.docx")))
 
     (:name "Kétoldalú kinevezésmódosítás"
      :dir  "Kétoldalú kinevezésmódosítás"
      :szk
-     ((,(szk-fn "B2") "Pedagógus"       "Kinevezésmódosítás_kétoldalú_pedagógus.docx")
-      (,(szk-fn "B8") "PedNOKS"         "Kinevezésmódosítás_kétoldalú_ped. szakkép. noks.docx")
-      (,(szk-fn "B9") "NOKS"            "Kinevezésmódosítás_kétoldalú_nem ped. szakkép. noks.docx")
-      (,(b1-noks-fn)  "Köznev.NOKS"     "Munkaszerzõdés-módosítás_noks munkakör_munkavállaló.docx")
-      (,(b1-kiseg-fn) "Köznev.kisegítõ" "Munkaszerzõdés-módosítás_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))))
+     ((,(szk-fn "B2") "B2" "Kinevezésmódosítás_kétoldalú_pedagógus.docx")
+      (,(szk-fn "B8") "B8" "Kinevezésmódosítás_kétoldalú_ped. szakkép. noks.docx")
+      (,(szk-fn "B9") "B9" "Kinevezésmódosítás_kétoldalú_nem ped. szakkép. noks.docx")
+      (,(b1-noks-fn)  "B1" "Munkaszerzõdés-módosítás_noks munkakör_munkavállaló.docx")
+      (,(b1-kiseg-fn) "B1" "Munkaszerzõdés-módosítás_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))))
 
 
 #|(defparameter *templates-ps*
@@ -84,24 +84,37 @@
                                                                      (getf rec :name))))
            (szk  (find-if #'identity (getf type :szk) :key #'(lambda (rec)
                                                                (funcall (first rec) xarray)))))
-      (list (getf type :dir)
-            (second szk)
-            (third szk)))))
-; => ("Egyoldalú kinevezésmódosítások" "PedNOKS" "Kinevezésmódosítás_egyoldalú_ped. szakkép. noks.docx")
+      (when szk
+        (append (list (getf type :dir))
+                (cdr szk))))))
+
 
 (defun doctemplate (xarray)
-  (concatenate 'string *doc-template-dir*
-               (second (find ps *templates-ps* :key #'first :test #'string=))))
+  (destructuring-bind (&optional subdir szk template)
+      (select-doctype xarray)
+    (declare (ignore szk))
+    (when template
+      (concatenate 'string
+                   *doc-template-dir* "\\"
+                   subdir "\\"
+                   template))))
 
 
-
-
-(defun newfile (tk ps)
+#|(defun newfile (tk ps)
   (format nil "~a~a ~a ~a ~a"
           *out-dir* tk ps
           (timestamp (get-universal-time))
-          (second (find ps *templates-ps* :key #'first :test #'string=))))
-
+          (second (find ps *templates-ps* :key #'first :test #'string=))))|#
+(defun newfile (xarray)
+  (destructuring-bind (&optional subdir szk template)
+      (select-doctype xarray)
+    (declare (ignore subdir))
+    (when template
+      (let ((tk (xaref xarray "Vállalat hosszú megnevezése" 1)))
+        (format nil "~a~a, ~a, ~a, ~a" *out-dir* tk szk
+                (timestamp (get-universal-time))
+                template)))))
+              
 
 ;;; ----------------------------------------------------------------------
 ;;; Törzs
@@ -414,30 +427,37 @@
 
 (defun add-template (doc xarray)
   ;; Új temp file dok.sablon alapján
-  (with-document (current :open-file (doctemplate xarray) :read-only t :close t)
-    ;; Adatok beillesztése táblázatból
-    (fill-template current xarray)
-    (if *page-break-needed*
-      #m(insertbreak (end-of-doc doc) +wd-section-break-next-page+)
-      (setf *page-break-needed* t))
-    ;; Jelen SZTSZ dok.törzs másolása
-    #m(select current)
-    #m(copy #p(selection #p(parent current)))
-    #m(paste (end-of-doc doc))
-    ;; 1. oldali fejléc/lábléc másolása
-    (cclet* ((sect-src #p(first #p(sections current)))
-             (sect-trg #p(last  #p(sections doc)))
-             (head-src #p(range #m(item #p(headers sect-src) +wd-header-footer-first-page+)))
-             (head-trg #p(range #m(item #p(headers sect-trg) +wd-header-footer-first-page+)))
-             (foot-src #p(range #m(item #p(footers sect-src) +wd-header-footer-first-page+)))
-             (foot-trg #p(range #m(item #p(footers sect-trg) +wd-header-footer-first-page+))))
-      #m(copy  head-src)
-      #m(paste head-trg)
-      #m(copy  foot-src)
-      #m(paste foot-trg)
-      (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t)))
-  ;; Eredmény állapotának mentése
-  #m(save doc))
+  (let ((temp-name (doctemplate xarray)))
+    (when temp-name
+      (with-document (current :open-file temp-name :read-only t :close t)
+        ;; Adatok beillesztése táblázatból
+        (fill-template current xarray)
+        (if *page-break-needed*
+          #m(insertbreak (end-of-doc doc) +wd-section-break-next-page+)
+          (setf *page-break-needed* t))
+        ;; Jelen SZTSZ dok.törzs másolása
+        #m(select current)
+        #m(copy #p(selection #p(parent current)))
+        #m(paste (end-of-doc doc))
+        ;; 1. oldali fejléc/lábléc másolása
+        (cclet* ((sect-src #p(first #p(sections current)))
+                 (sect-trg #p(last  #p(sections doc)))
+                 (head-src #p(range #m(item #p(headers sect-src) +wd-header-footer-first-page+)))
+                 (head-trg #p(range #m(item #p(headers sect-trg) +wd-header-footer-first-page+)))
+                 (foot-src #p(range #m(item #p(footers sect-src) +wd-header-footer-first-page+)))
+                 (foot-trg #p(range #m(item #p(footers sect-trg) +wd-header-footer-first-page+))))
+          #m(copy  head-src)
+          #m(paste head-trg)
+          #m(copy  foot-src)
+          #m(paste foot-trg)
+          (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t)))
+      ;; Eredmény állapotának mentése
+      #m(save doc)
+      t)))
+
+
+(defun line (n)
+  (format nil "~v@{~A~:*~}" n "-"))
 
 
 (defun process ()
@@ -447,33 +467,36 @@
       (with-progress ("Dokumentumok generálása" move dump (length (xcol-uniques ws-query "SZTSZ")))
         ;; Iteráció TK-kon.
         (xdouniq (tk ws-query tk-head)
-          (dump (format nil "~%----------------------------------------------------------------------~%~a~%----------------------------------------------------------------------~%~%" tk))
+          (dump (format nil "~%~a~%~a~%~a~%~%" (line 70) tk (line 70)))
           ;; Iteráció személyi körökön.
           (xdouniq (ps ws-query "SZK" :select `((,tk-head ,tk)))
-            (dump (format nil "--------------------------------------------------~%~a személyi kör~%~%" ps))
-            ;; ha a személyi körhöz nincs dok.sablon:
-            (if (not (position ps *templates-ps* :test #'string= :key #'first))
-              (progn
-                ;; Figyelmeztetés
-                (dump (format nil "~a személyi körhöz nincs dokumentumsablon!~%" ps))
-                ;; Progress bar átugorja a hiányzó SZTSZ-eket.
-                (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
-                  (dump (format nil "Kihagyás: ~a SZTSZ~%" sztsz))
-                  (move)))
-              ;; ...ha van:
-              ;; Új dokumentum létrehozása, mentés másként
-              (with-document (newdoc :close t :save t)
-                #m(saveas2 newdoc (newfile tk ps)) ; <------------------------------------ ezt valahogy be kéne tenni az SZTSZ ciklusba, és külön értékek helyett a xarray-t adni paraméterként, mert nem csak a PS-bõl filózzák ki a fájlnevet
-                ;; Iteráció SZTSZ-eken.
-                ;; Oldaltörés inicializálása.
-                (setf *page-break-needed* nil)
-                (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
-                  (dump (format nil "SZTSZ: ~a~%" sztsz))
-                  ;; SZTSZ adatainak beírása a dokumentumba.
-                  (add-template newdoc            ; <--------------------------------------------
-                                #p(value2 (used-range (xselect> ws-query
-                                                                `(("SZTSZ" ,sztsz))))))
-                  (move))))))
+            (dump (format nil "~a~%~a személyi kör~%~%" (line 35) ps))
+            ;; Új dokumentum létrehozása, mentés másként
+            (let ((album-name (newfile #p(value2 (used-range 
+                                                  (xselect> ws-query
+                                                            `((,tk-head ,tk) ("SZK" ,ps))))))))
+              ;; Ha jelen személyi körhöz nincs definiálva doctype:
+              (if (not album-name)
+                (progn
+                  (dump (format nil "~a személyi kör nincs definiálva.~%" ps))
+                  (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
+                    (dump (format nil "SZTSZ: ~a   kihagyva~%" sztsz))
+                    (move)))
+                ;; Ha van:
+                (with-document (album :close t :save t)
+                  #m(saveas2 album album-name)
+                  ;; Oldaltörés inicializálása.
+                  (setf *page-break-needed* nil)
+                  ;; Iteráció SZTSZ-eken:
+                  (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
+                    (dump (format nil "SZTSZ: ~a" sztsz))
+                    ;; SZTSZ adatainak beírása a dokumentumba.
+                    (if (add-template album
+                                      #p(value2 (used-range (xselect> ws-query
+                                                                      `(("SZTSZ" ,sztsz))))))
+                      (dump (format nil "   ok~%"))
+                      (dump (format nil "   HIBA!~%")))
+                    (move)))))))
         (dump (format nil "~%~%~%~%"))))))
 
 
@@ -484,7 +507,8 @@
 (defun save-state ()
   (save-forms
    (appfile "state.txt")
-   `(:query1  ,*xls-query*
+   `(:doctype ,*doctype*
+     :query1  ,*xls-query*
      :query2  ,*xls-query2*
      :tempdir ,*doc-template-dir*
      :outdir  ,*out-dir*)))
@@ -493,9 +517,10 @@
 (defun load-state ()
   (let ((state (first (load-forms "state.txt"))))
     (when state
-      (destructuring-bind (&key query1 query2 tempdir outdir &allow-other-keys)
+      (destructuring-bind (&key doctype query1 query2 tempdir outdir &allow-other-keys)
           state
-        (setf *xls-query*        query1
+        (setf *doctype*          doctype
+              *xls-query*        query1
               *xls-query2*       query2
               *doc-template-dir* tempdir
               *out-dir*          outdir
@@ -503,7 +528,8 @@
 
 
 (defun init-state ()
-  (setf *xls-query*        (appdir)
+  (setf *doctype*          (getf (first *doctypes*) :name)
+        *xls-query*        (appdir)
         *xls-query2*       ""
         *doc-template-dir* (appdir)
         *out-dir*          (appdir)
