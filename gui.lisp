@@ -2,6 +2,7 @@
                                                                               ;
 
 (in-package #:wax)
+(require "shell-objs")
 
 
 ;; ----------------------------------------------------------------------
@@ -63,13 +64,14 @@
 ;; Main window
 
 
-(defun wg-file-selector (label filter filters callback); accessor)
+(defun wg-file-selector (label filter filters callback text); accessor)
   (make-instance
    'capi:text-input-pane
    :title label
- ;  :accessor accessor
+   :text text
+;  :accessor accessor
    :buttons `(:browse-file
-              (:pathname ,(sys:get-folder-path :my-documents)
+              (;:pathname ,(sys:get-folder-path :my-documents)
                :if-does-no-exist :prompt
                :filter ,filter
                :filters ,filters)
@@ -81,16 +83,18 @@
    ))
 
 
-(defun wg-dir-selector (label callback); accessor)
+(defun wg-dir-selector (label callback text); accessor)
   (make-instance
    'capi:text-input-pane
    :title label
+   :text text
 ;   :text "Kezdeti érték, mentve az elõzõ menetbõl"
  ;  :accessor accessor
    :buttons `(:browse-file
               (:directory t
-               :pathname ,(sys:get-folder-path :my-documents)
-               :if-does-no-exist :prompt)
+;               :pathname ,(sys:get-folder-path :my-documents)
+               :if-does-no-exist :prompt
+               :use-file-dialog t)
               :ok nil)
    :callback callback
 ;   :callback-type :interface
@@ -113,4 +117,10 @@
    (make-instance
     'capi:column-layout
     :description list)
+   :best-x '(- (/ :screen-width 2) 200)
+   :best-y '(- (/ :screen-height 2) 100)
    :title title))
+
+
+(defun ws-msg (string &rest rest)
+  (apply #'capi:display-message string rest))

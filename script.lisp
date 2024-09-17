@@ -8,10 +8,14 @@
 ;;; Ki/bemeneti fájlok
 
 
-(defparameter *xls-query*        nil)
-(defparameter *doc-template-dir* nil)
-(defparameter *out-dir*          nil)
-(defparameter *xls-tks*          nil)
+(defparameter *xls-tks-filename* "TK vezetõk.xlsx")
+
+
+(defparameter *xls-query*        "")
+(defparameter *xls-query2*       "")
+(defparameter *doc-template-dir* "")
+(defparameter *out-dir*          "")
+(defparameter *xls-tks*          "")
 
 (defparameter *templates-ps*
   '(
@@ -36,18 +40,12 @@
           (timestamp (get-universal-time))
           (second (find ps *templates-ps* :key #'first :test #'string=))))
 
-(defun tempfile ()
-  (format nil "~a~a_~a~a"
-          *out-dir* "temp" (timestamp (get-universal-time)) ".docx"))
-
 
 ;;; ----------------------------------------------------------------------
 ;;; Törzs
 
 
 (defparameter *page-break-needed* nil)
-(defparameter *tab* #\tab)
-(defparameter *cr*  #\return)
 
 
 (defun get-fee-row (xarray row cols codes)
@@ -151,70 +149,70 @@
      ,(vals-fn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
         (clean-name (conc-with-single-spaces (list a b c)))))
 
-#|    ("munkakör"
+    ("Munkaköre: $………………$"
      ,(vals-fn ((a "Munkakör"))
         (remove-double-spaces
          (trim-edge-spaces a))))
 
-    ("Munkavégzés_helye"
+    ("Munkavégzésének helye: $……………………………………………………$, cím"
      ,(vals-fn ((a "szervezeti egys hosszú megnev."))
         (remove-double-spaces 
          (trim-edge-spaces a))))
 
-    ("heti_óra"
+    ("Heti munkaideje: $……$ óra"
      ,(vals-fn ((a "Heti óra"))
         (round a)))
 
-    ("FEOR"
+    ("FEOR száma: $………………$^M"
      ,(vals-fn ((a "FEOR-sz.s."))
         (remove-double-spaces 
          (trim-edge-spaces a))))
 
-    ("fokozat"
+    ("besorolom Önt $………………$ fokozatba. ^M"
      ,(vals-fn ((a "Bérrendsz. csop név"))
         (remove-double-spaces 
          (trim-edge-spaces a))))
 
-    ("kezdés_dátum"
+    ("Önt $………………$ napjától"
      ,(vals-fn ((a "Belépés dátuma"))
         (excel-date-string a :words t)))
     
-    ("TK_névelõ"
+    ("napjától $………………$ Tankerületi Központ"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (add-article
          (first (split-into-words a)))))
 
-    ("kinevezés_hivatkozás"
+    ("(1) bekezdése alapján $$kinevezem Önt"
      ,(vals-fn ((a "Kinevezés/szerzõdés jellege"))
         (if (string= a "Határozatlan id.kine")
           ""
           "és 40. § (1)-(3) bekezdése ")))
 
-    ("határozott_határozatlan"
+    ("állományába $………………$ köznevelési"
      ,(vals-fn ((a "Kinevezés/szerzõdés jellege") (b "Szerz.vége"))
         (if (string= a "Határozatlan id.kine")
           "határozatlan idejû"
           (format nil "tartósan távollévõ helyettesítése céljából határozott ideig, várhatóan ~a napjáig tartó" (excel-date-string b :words t)))))
 
-    ("Székhely_1"
+    ("illetékes törvényszékhez. ^M^M$………………$,"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
-        (second (get-tk-data a))))|#
+        (second (get-tk-data a))))
 
     ("Pénzügyileg ellenjegyzem. ^M^M$………………$, "
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (second (get-tk-data a))))
 
-#|    ("TK_vezetõ"
+    ("$………………$^Mtankerületi igazgató^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (third (get-tk-data a))))
 
-    ("Pénzügyi_ellenjegyzõ"
+    ("$………………$^Mtitulus^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (fourth (get-tk-data a))))
     
-    ("Dolgozó_aláírás"
+    (,(format nil "~C~C$………………$^M~C          köznevelési foglalkoztatotti" #\tab #\tab #\tab)
      ,(vals-fn ((a "Név"))
-        (clean-name a)))|#
+        (clean-name a)))
 
     ("Székhelye: $………………$^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
@@ -222,21 +220,19 @@
      ,#'(lambda (doc)
           (ccom::footer doc 1 +wd-header-footer-first-page+)))
 
-;          #p(range #m(item #p(footers #p(first #p(sections doc)))
-;                           +wd-header-footer-first-page+))))
-    
-#|    ("Törzskönyvi_azonosító"
+    ("Törzskönyvi azonosító szám: $………………$^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
-        (round (fifth (get-tk-data a)))))|#
+        (round (fifth (get-tk-data a))))
+     ,#'(lambda (doc)
+          (ccom::footer doc 1 +wd-header-footer-first-page+)))
 
     ("$………………$^MTANKERÜLETI^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
-        (string-upcase (first (split-into-words (first (get-tk-data a))))))
+        (hupcase (first (split-into-words (first (get-tk-data a))))))
      ,#'(lambda (doc)
           (ccom::header doc 1 +wd-header-footer-first-page+)))
-     
 
-#|    ("Próbaidõ_bekezdés"
+    ("$A …-jogszabály-… alapján próbaidõ nem köthetõ ki.$^M"
      ,(vals-fn ((szk "SZK") (bd "Belépés dátuma") (pv "Próbaidõ  vége"))
         (let* ((pv-str (if (numberp pv) (excel-date-string pv :words t) "..."))
                (period (concatenate 'string (excel-date-string bd :words t) " napjától " pv-str))
@@ -251,15 +247,17 @@
               "A …-jogszabály-… alapján próbaidõ nem köthetõ ki."
               bx-prob)))))
 
-    ("Gyakornoki_idõ_bekezdés"
-     ,(vals-fn ((besor "Bérrendsz. csop név") (bd "Belépés dátuma") (vh :ai)) ;;;;;; AJ!!!!!!!!!
+    ("$A pedagógusok új életpályájáról szóló 2023. évi LII. törvény végrehajtásáról szóló 401/2023. (VIII. 30.) Korm. rendelet (a továbbiakban: Púétv. vhr.) 37. § (1)-(13) bekezdése alapján az Ön gyakornoki ideje ……………… napjától ……………… napjáig tart, minõsítõ vizsgát ……………… napjáig köteles tenni. Amennyiben a minõsítõ vizsgája sikeres, a Púétv. vhr. 37. § (8) bekezdése alapján Önt ……………… fokozatba kell besorolni.$^M"
+     ,(vals-fn ((besor "Bérrendsz. csop név") (bd "Belépés dátuma") (vh "Határidõ"))
         (let ((bd-str (excel-date-string bd :words t))
-              (vh-str (excel-date-string bd :words t)))  ;;;;;;;;;;;;;;;;;;;;;; itt most kezdõ dátum van
+              (vh-str (if (empty-cell-p vh)
+                        (excel-date-string vh :words t)
+                        "...")))
           (if (string= besor "Gyakornok")
             (concatenate 'string "A  pedagógusok új életpályájáról szóló 2023. évi LII. törvény végrehajtásáról szóló 401/2023. (VIII. 30.) Korm. rendelet (a továbbiakban: Púétv. vhr.) 37. § (1)-(13) bekezdése alapján az Ön gyakornoki ideje " bd-str " napjától ...  napjáig tart, minõsítõ vizsgát " vh-str " napjáig köteles tenni. Amennyiben a minõsítõ vizsgája sikeres, a Púétv. vhr. 37. § (8) bekezdése alapján Önt Pedagógus I. fokozatba kell besorolni.")
             ""))))
 
-    ("Illetmény_jogszabályi_hivatkozás"
+    ("hatállyal $………………$ alapján az alábbiak szerint állapítom meg.^M"
      ,(vals-fn ((szk "SZK") (bes "Bérrendsz. csop név") (eila "Esélyteremtési illetményrészre")) :fees fees
         (let ((cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2024*)
               (cref::*codenames* cref::*puetv-megnevezes-2024*))
@@ -268,11 +266,11 @@
                  (text  (cref::convert fees)))
             text))))
 
-    ("Illetmény_kezdete"
+    ("Havi illetményét $………………$ napi hatállyal"
      ,(vals-fn ((a "Belépés dátuma"))
         (excel-date-string a :words t)))
 
-    ("Illetményelemek_felsorolása"
+    (,(format nil "$Havi illetmény:~C………………~CFt^MIlletmény összesen:~C………………~cFt$^M" #\tab #\tab #\tab #\tab)
      ,(vals-fn ((bd "Belépés dátuma")) :fees fees
         (let* ((ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2024-sorrend*))
                (total   0)
@@ -295,14 +293,14 @@
                (lines  '()))
           (dolist (cookin digest)
             (destructuring-bind (name sum &optional start end) cookin
-              (push (format nil "~a:~C~a~CFt~C" name *tab* sum *tab* *cr*) lines)
+              (push (format nil "~a:~C~a~CFt~C" name #\tab sum #\tab #\return) lines)
               (when start
                 (if end
-                  (push (format nil "megállapításának idõszaka: ~a napjától ~a napjáig~C" start end *cr*) lines)
-                  (push (format nil "megállapításának idõszaka: ~a napjától~C" start *cr*) lines)))))
-          (push (format nil "Illetmény összesen:~C~a~CFt~C" *tab* (currency total) *tab* *cr*) lines)
+                  (push (format nil "megállapításának idõszaka: ~a napjától ~a napjáig~C" start end #\return) lines)
+                  (push (format nil "megállapításának idõszaka: ~a napjától~C" start #\return) lines)))))
+          (push (format nil "Illetmény összesen:~C~a~CFt~C" #\tab (currency total) #\tab #\return) lines)
           (apply #'concatenate 'string
-                 (nreverse lines)))))|#
+                 (nreverse lines)))))
 
 #|    ("$23$"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -318,14 +316,6 @@
           (when sum
             (sub->words sum)))))|#
 ))
-
-
-#|(defun fill-template (current xarray)
-  (dolist (pair *t2*)
-    (destructuring-bind (bookmark value-fn)
-        pair
-      (overwrite-bookmark current bookmark
-                          (format nil "~a" (funcall value-fn xarray))))))|#
 
 
 (defun temp-target (temp)
@@ -357,20 +347,13 @@
               (ccom::selection-overwrite range start end text))))))))
 
 
-#|                 (select #p(selection #p(activewindow current))))
-          (when found
-            #m(setrange select start end)
-            #m(typetext select
-                        )))))))|#
-
-
 (defconstant +wd-section-break-next-page+ 2)
 
 
 (defun add-template (doc xarray)
   (let ((ps  (xaref xarray "SZK" 1)))
     ;; Új temp file dok.sablon alapján
-    (with-document (current :open-file (doctemplate ps) :close t)
+    (with-document (current :open-file (doctemplate ps) :read-only t :close t)
       ;; Adatok beillesztése táblázatból
       (fill-template current xarray)
       (if *page-break-needed*
@@ -434,59 +417,79 @@
 
 
 ;;; ----------------------------------------------------------------------
-;;; Sandbox
+;;; Main
 
 
-(defun test ()
-  (let ((*xls-query*        "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\wax-EXPORT.XLSX")
-        (*doc-template-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\")
-        (*out-dir*          "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmény\\")
-        (*xls-tks*          "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\TK vezetõk.xlsx"))
-    (process)))
+(defun save-state ()
+  (save-forms
+   (appfile "state.txt")
+   `(:query1  ,*xls-query*
+     :query2  ,*xls-query2*
+     :tempdir ,*doc-template-dir*
+     :outdir  ,*out-dir*)))
 
 
+(defun load-state ()
+  (let ((state (first (load-forms "state.txt"))))
+    (when state
+      (destructuring-bind (&key query1 query2 tempdir outdir &allow-other-keys)
+          state
+        (setf *xls-query*        query1
+              *xls-query2*       query2
+              *doc-template-dir* tempdir
+              *out-dir*          outdir
+              *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* tempdir)))))))
 
 
-
+(defun init-state ()
+  (setf *xls-query*        (appdir)
+        *xls-query2*       ""
+        *doc-template-dir* (appdir)
+        *out-dir*          (appdir)
+        *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* (appdir)))))
 
 
 (defun start ()
-  (let ((sap   "")
-        (temps "")
-        (out   "")
-        (tks   ""))
+  (init-state)
+  (load-state)
   (wg-window
    "Kinevezés-generáló"
    (wg-file-selector "SAP lekérdezés eredménye"
                      "*.xlsx"
                      '("Excel fájlok" "*.xlsx" "Minden fájl" "*.*")
                      #'(lambda (text &rest rest)
-                         (setf sap text)))
+                         (setf *xls-query* text))
+                     *xls-query*)
    (wg-dir-selector "Dokumentumsablonok mappája"
                     #'(lambda (text &rest rest)
-                        (setf temps text)
-                        (setf tks   (concatenate 'string temps "TK vezetõk.xlsx"))))
+                        (setf *doc-template-dir* text
+                              *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* text ))))
+                    *doc-template-dir*)
    (wg-dir-selector "Generált dokumentumok mappája"
                     #'(lambda (text &rest rest)
-                        (setf out text)))
+                        (setf *out-dir* text))
+                    *out-dir*)
    (wg-button "Dokumentumok generálása"
               #'(lambda (if)
-                  (let ((*xls-query*        sap)
-                        (*doc-template-dir* temps)
-                        (*out-dir*          out)
-                        (*xls-tks*          tks))
-                    (process)))))))
+                  (save-state)
+                  (process)))))
 
 
+;;; ----------------------------------------------------------------------
+;;; Main
+
+
+(defun test ()
+  (let (        
+;        (*xls-query*        "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\wax-EXPORT_orig.XLSX")
+        (*xls-query*        "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\wax-EXPORT.XLSX")
+        (*doc-template-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\")
+        (*out-dir*          "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmény\\")
+        (*xls-tks*          "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\TK vezetõk.xlsx"))
+    (save-state)
+    (process)))
 
 
 (defun test01 ()
-  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\bookmarks.docx" :save t)
-    (ccom::word-replace1st doc "köre:gyógy" "ZAZZZ")
-    (ccom::word-replace1st doc "tart, minõ" "KluFF")
-    (ccom::word-replace1st doc "zem. Érd3$" "SSSSSDEG")))
-
-
-(defun test02 ()
-  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\bookmarks.docx" :save t)
-    (ccom::range-find-text #p(content doc) "Mackó Lackó")))
+  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\sandbox\\bookmarks.docx")
+    #p(text #p(content doc))))

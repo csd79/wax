@@ -6,8 +6,10 @@
 
 (asdf:load-system "wax")
 
+(setf wax::*independent-exe* t)
+
 (lw:deliver 'wax:start
-    "c:\\Users\\cselovszkid\\common-lisp\\wax\\wax_v0.17.exe"
+    "c:\\Users\\cselovszkid\\common-lisp\\wax\\wax_v0.18.exe"
     5
     :interface :capi
     :console :io
@@ -17,5 +19,5 @@
     :keep-eval t
     :keep-lisp-reader t
     :symbol-names-action nil
-    :startup-bitmap-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\img\\waxman_dither.bmp"
+    :startup-bitmap-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\img\\blowfice.bmp"
     :kill-dspec-table nil)

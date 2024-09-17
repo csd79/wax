@@ -214,3 +214,16 @@
 
 (defun currency (number)
   (format nil "~,,' ,3:d" (round number)))
+
+
+(defun hupcase (string)
+  (let ((stage1   (string-upcase string))
+        (replaces '(("á" "Á") ("é" "É") ("í" "Í") ("ó" "Ó") ("ö" "Ö") ("õ" "Õ") ("ú" "Ú") ("ü" "Ü") ("û" "Û"))))
+    (labels ((repl (string list)
+               (if list
+                 (destructuring-bind (from to) (first list)
+                   (repl (cl-ppcre::regex-replace-all from string to)
+                         (rest list)))
+                 string)))
+      (repl stage1 replaces))))
+

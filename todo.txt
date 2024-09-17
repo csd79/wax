@@ -5,45 +5,11 @@ A kétoldalú módosításhoz két lekérdezés kell, ez ott lehetne a GUI-n, de
 
 -----------------------------------------------------------------------------
 
-GUI - értelmes kezdőértékek a bemeneti fájlok/mappák mezőkben
-
-sap export:
-első indítás: my doc
-későbbi indítások: az előző futtatásnál beállított helyen kezdjen
-temps:
-első indítás: program mappája (elvileg ott van az exe mellett)
-későbbi indítások: az előző futtatásnál beállított mappa
-out:
-első indítás: program mappája. Ha temps-et módosítottuk, az kerüljön ide (de csak első indításkor!)
-későbbi indítások: az előző futtatásnál beállított mappa
-
-Mindehhez kell:
-- függvény ami visszaadja az exe (vagy fejlesztés esetén a forrás mappa) elérését
-- egy "settings" fájl az exe mellett, amiben feljegyzi az előző futtatás értékeit abban a pillanatban, amikor megnyomjuk az indítás gombot.
-
------------------------------------------------------------------------------
-
-Indítás gomb megnyomásakor győződjön meg hogy a mappák/fájlok léteznek. Ha egyik nem, jelenjen meg hiba ablak. Innen folytatódjon.
-
------------------------------------------------------------------------------
-
-Mindkét (mind3, hibával együtt) ablak pozíciója legyen képernyő relatív, valahol középen.
-
------------------------------------------------------------------------------
-
 Fájl-requesterhez filter/filters legyen egy listában.
 
 -----------------------------------------------------------------------------
 
-doctemplate, newfile, tempfile: legyen glob.változókkal irányított, általánosabb, és átteni wax-ba.
-
------------------------------------------------------------------------------
-
-*tab*, *cr*: nem szükséges, legyen konkrét karakter.
-
------------------------------------------------------------------------------
-
-A program csak azokat a könyvjelzőkhöz tartozó dolgokat értékelje ki a vezérlő listából, amelyek előfordulnak a megadott sablonban.
+doctemplate, newfile: legyen glob.változókkal irányított, általánosabb, és átteni wax-ba.
 
 -----------------------------------------------------------------------------
 
@@ -53,7 +19,6 @@ Továbbá a main GUI-t (vagy legalábbis az indító gombot) deaktiválni kellen
 -----------------------------------------------------------------------------
 
 Excel munkalap és tömb közötti oda-vissza most explicit, ez jó.
-De ne nevezzük xarray-nak, mert ez arra enged következtetni hogy ez egy másik tömbtípus.
 A tömböt is lehessen szűrni úgy, hogya szűrés visszaad egy vektort, amit odaadhatunk a tömb-iterálónak.
 Ezzel kiküszöbölhetnénk a folyamatos Excel szűréseket.
 
@@ -64,39 +29,32 @@ Pontosan mi a különbség a value2 és value között?
 
 -----------------------------------------------------------------------------
 
-Keresés és csere: használjuk a beépített find objektumot, osszuk fel a szövegeket 250 karakteres darabokra.
-A find jó a csere helyének meghatározására. Ki lehet belőle szedni apozíciót??????
-Utána simán typetext.
-Ha ez működne, elérhetnénk hogy egyáltalán ne kelljen preparálni a dok.sablonokat.
-
------------------------------------------------------------------------------
-
 Keretprogram.
 wax/utils: compile-and-load, hotload...
 
 -----------------------------------------------------------------------------
 
-startup bitmap
-
------------------------------------------------------------------------------
-
-Minden sablon megnyitás legyen read only!!!!
-
------------------------------------------------------------------------------
-
-Megállapítani, hogy miért maradnak beragadt Word/Excel példányok?
-Excel volt több.
-Alap lenne hogy alapértelmezésben zárja be a dokumentumot a with-workbbok.
-De akkor be kell állítani a saved-et, hacsak a save = t
+startup bitmap túl gyorsan eltűnik
+CAPI-val kell megcsinálni a másik képet, áttetsző háttérrel.
+ld https://www.lispworks.com/documentation/lw51/CAPRM/html/capiref-170.htm#30394
+interface: transparency
 
 -----------------------------------------------------------------------------
 
 Mivel a program használja a vágólapot, ha közben egy másik alkalmazásban mi is használnánk, kavarodást okoznánk.
 Lehetőleg kivenni minden vágólap használatot, és/vagy figyelmeztetést jeleníteni meg hogy a futás ideje alatt ne használjuk a vágólapot, sem bármelyik dokumentumot ami érintett a műveletben.
+Mivel más módszert nem tudok:
+Úgy lenn elkerülhető a vágólap ha az egyes SZTSZ-eket külön dok-ba mentenénk, és végül ezeket InsertDoc-kal összeszednénk egy üres dokumentumba.
+Tehát ;... ha van alá:
+Az add-template mentsen egy új fájlt, és adja vissza a nevét. Ezeket gyűjtsük listába, majd a végén mindet egybe.
 
 -----------------------------------------------------------------------------
 
 cref-nek megvan a saját todo listája.
 
 -----------------------------------------------------------------------------
+
+Gyakornoki idő: oszlop hiányzik a lekérdezésből!
+
 -----------------------------------------------------------------------------
+
