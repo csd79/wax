@@ -54,7 +54,7 @@ cref-nek megvan a saját todo listája.
 
 -----------------------------------------------------------------------------
 
-Gyakornoki idő: oszlop hiányzik a lekérdezésből!
+Gyakornoki idő: oszlop hiányzik a lekérdezésből! (nem egészen)
 
 -----------------------------------------------------------------------------
 
@@ -63,3 +63,15 @@ Tesztcsomag:
  B2 teszhez összehasonlítót írni
  megírni a részt ami megkülönbözteti a kinevezést a módosításoktól
  és az ami megkülönbözteti a B1 NOKS-ot a kisegítőtől
+
+-----------------------------------------------------------------------------
+
+Ha a state-ből egy nemlétező fájl/mappa töltődik be, akkor mikor a gombra kattintunk, rögtön reklamál hogy nem létezik. Ez viselkedhetne ésszerűbben is.
+
+-----------------------------------------------------------------------------
+
+Ha nem kellene újra elindítani a Word-ot minden üres fájlhoz és sablonhoz, gyorsabb lenne. Őrzze meg az app-ot.
+
+-----------------------------------------------------------------------------
+
+wg-progress: dump-ot újraírni úgy, hogy egy stream legyen amibe írni lehet, és az jelenik meg a kimenei ablakban.

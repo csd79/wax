@@ -5,5 +5,5 @@
 
 
 (defpackage #:wax
-  (:use #:cl #:ccom )
+  (:use #:cl #:ccom #:achar)
   (:export #:start))
