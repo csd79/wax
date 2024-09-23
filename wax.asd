@@ -1,7 +1,7 @@
 (defsystem "wax"
   :description "Scripting environment for MS Office apps"
   :author      "Denes Cselovszki <denes.cselovszki@gmail.com>"
-  :version     "0.20"
+  :version     "0.20b"
   :depends-on  ("ccom" "cref" "achar" "cl-ppcre" "local-time" "str")
   :serial      t
   :components  ((:file "package")

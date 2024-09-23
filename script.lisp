@@ -197,7 +197,6 @@
   `(
     ("$………………$^MTANKERÜLETI^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
-;        (hupcase (first (split-into-words (first (get-tk-data a))))))
         (astring-upcase (first (str:words (first (get-tk-data a))))))
      ,#'(lambda (doc)
           (ccom::header doc 1 +wd-header-footer-first-page+)))
@@ -216,12 +215,10 @@
     
     ("$………………$^Mfoglalkoztatott részére"
      ,(vals-fn ((a "Név"))
-;        (push a *out*)
         (clean-name a)))
     
     ("Születési neve: $………………$^M"
      ,(vals-fn ((a "Születési vezetéknév") (b "Születési utónév") (c "2.születési utónév"))
-;        (clean-name (conc-with-single-spaces (list a b c)))))
         (clean-name (str:unwords (list a b c)))))
     
     ("Születési helye, ideje: $………………$^M"
@@ -230,7 +227,6 @@
 
     ("Anyja neve: $………………$^M"
      ,(vals-fn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
-;        (clean-name (conc-with-single-spaces (list a b c)))))
         (clean-name (str:unwords (list a b c)))))
 
     ("(1) bekezdése alapján $$kinevezem Önt"
@@ -246,7 +242,6 @@
     ("napjától $………………$ Tankerületi Központ"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (add-article
-;         (first (split-into-words a)))))
          (first (str:words a)))))
 
     ("állományába $………………$ köznevelési"
@@ -275,15 +270,11 @@
     ("unkaköre: $………………$^M"
      ,(vals-fn ((a "Munkakör"))
         (str:unwords (str:words
-;        (remove-double-spaces
-;         (trim-edge-spaces a))))
          (str:trim a)))))
 
     ("Munkavégzésének helye: $……………………………………………………$, cím"
      ,(vals-fn ((a "szervezeti egys hosszú megnev."))
         (str:unwords (str:words
-;        (remove-double-spaces 
-;         (trim-edge-spaces a))))
          (str:trim a)))))
 
     ("Heti munkaideje: $……$ óra"
@@ -293,15 +284,11 @@
     ("FEOR száma: $………$^M"
      ,(vals-fn ((a "FEOR-sz.s."))
         (str:unwords (str:words
-;        (remove-double-spaces 
-;         (trim-edge-spaces a))))
          (str:trim a)))))
 
     ("besorolom Önt $………………$ fokozatba. ^M"
      ,(vals-fn ((a "Bérrendsz. csop név"))
         (str:unwords (str:words
-;        (remove-double-spaces 
-;         (trim-edge-spaces a))))
          (str:trim a)))))
 
     ("$^MA pedagógusok új életpályájáról szóló 2023. évi LII. törvény végrehajtásáról szóló 401/2023. (VIII. 30.) Korm. rendelet (a továbbiakban: Púétv. vhr.) 37. § (1)-(13) bekezdése alapján az Ön gyakornoki ideje ……………… napjától ……………… napjáig tart, minõsítõ vizsgát ……………… napjáig köteles tenni. Amennyiben a minõsítõ vizsgája sikeres, a Púétv. vhr. 37. § (8) bekezdése alapján Önt ……………… fokozatba kell besorolni.^M^M$"
@@ -358,7 +345,6 @@
                 (if end
                   (push (format nil "megállapításának idõszaka: ~a napjától ~a napjáig~C" start end #\return) lines)
                   (push (format nil "megállapításának idõszaka: ~a napjától~C" start #\return) lines)))))
-;          (push (format nil "Illetmény összesen:~C~a~CFt~C" #\tab (currency total) #\tab #\return) lines)
           (push (format nil "Illetmény összesen:~C~a~CFt" #\tab (currency total) #\tab) lines)
           (apply #'concatenate 'string
                  (nreverse lines)))))
@@ -580,18 +566,7 @@
 
 
 ;;; ----------------------------------------------------------------------
-;;; Main
-
-
-#|(defun test ()
-  (let (        
-;        (*xls-query*        "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\wax-EXPORT_orig.XLSX")
-        (*xls-query*        "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\wax-EXPORT.XLSX")
-        (*doc-template-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\")
-        (*out-dir*          "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmény\\")
-        (*xls-tks*          "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\TK vezetõk.xlsx"))
-    (save-state)
-    (process)))|#
+;;; Sandbox
 
 
 (defun test01 (row)

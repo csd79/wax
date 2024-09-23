@@ -64,43 +64,32 @@
 ;; Main window
 
 
-(defun wg-file-selector (label filter filters callback text); accessor)
+(defun wg-file-selector (label filter filters callback text)
   (make-instance
    'capi:text-input-pane
    :title label
    :text text
-;  :accessor accessor
    :buttons `(:browse-file
-              (;:pathname ,(sys:get-folder-path :my-documents)
-               :if-does-no-exist :prompt
+              (:if-does-no-exist :prompt
                :filter ,filter
                :filters ,filters)
               :ok nil)
    :callback callback
-;   :callback-type :interface
-   :change-callback callback
-;   :change-callback-type :interface
-   ))
+   :change-callback callback))
 
 
-(defun wg-dir-selector (label callback text); accessor)
+(defun wg-dir-selector (label callback text)
   (make-instance
    'capi:text-input-pane
    :title label
    :text text
-;   :text "Kezdeti érték, mentve az elõzõ menetbõl"
- ;  :accessor accessor
    :buttons `(:browse-file
               (:directory t
-;               :pathname ,(sys:get-folder-path :my-documents)
                :if-does-no-exist :prompt
                :use-file-dialog t)
               :ok nil)
    :callback callback
-;   :callback-type :interface
-   :change-callback callback
-;   :change-callback-type :interface
-   ))
+   :change-callback callback))
 
 
 (defun wg-options (label callback items)
@@ -109,8 +98,7 @@
    :title label
    :items items
    :selected-item (first items)
-   :selection-callback callback
-   ))
+   :selection-callback callback))
 
 
 (defun wg-button (label callback)
