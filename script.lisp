@@ -449,52 +449,51 @@
       t)))
 
 
-(defun line (n)
-  (format nil "~v@{~A~:*~}" n "-"))
+(defun line (n &optional (char #\-))
+  (format nil "~v@{~A~:*~}" n char))
 
-(defun process ()
+(defun process (parent-interface)
   (with-workbook (wbook :open-file *xls-query* :read-only t :wsvars (ws-query) :close t)
     (cclet* ((tk-head "Vállalat hosszú megnevezése")
-             (word    (com:create-object :progid "Word.Application"))
-             )
+             (word    (com:create-object :progid "Word.Application")))
       ;; Progress bar
-      (with-progress ("Dokumentumok generálása" move dump (length (xcol-uniques ws-query "SZTSZ")))
+      (with-progress ("Dokumentumok generálása" parent-interface quit-on-abort dump step-progress-indicator
+                      (length (xcol-uniques ws-query "SZTSZ")))
+        ;; Figyelmeztetés a vágólap használatával kapcsolatban.
+        (dump "A program futása közben kérem ne használja a vágólapot!~%~%~%")
         ;; Iteráció TK-kon.
         (xdouniq (tk ws-query tk-head)
-          (dump (format nil "~%~a~%~a~%~a~%~%" (line 70) tk (line 70)))
+          (dump "~%~a~%~a~%~a~%~%" (line 70 #\=) (astring-upcase tk) (line 70 #\=))
           ;; Iteráció személyi körökön.
           (xdouniq (ps ws-query "SZK" :select `((,tk-head ,tk)))
-            (dump (format nil "~a~%~a személyi kör~%~%" (line 35) ps))
-            ;; Új dokumentum létrehozása, mentés másként
-            (let ((album-name (newfile #p(value2 (used-range ;;;;; az excelek itt berakadnak látszólag...............................................................................................................................................................
-                                                  (xselect> ws-query
-                                                            `((,tk-head ,tk) ("SZK" ,ps))))))))
-              ;; Ha jelen személyi körhöz nincs definiálva doctype:
-              (if (not album-name)
-                (progn
-                  (dump (format nil "~a személyi kör nincs definiálva.~%" ps))
-                  (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
-                    (dump (format nil "SZTSZ: ~a   kihagyva~%" sztsz))
-                    (move)))
-                ;; Ha van:
-                (with-document (album :app word :close t :save t)
-;                (with-document (album :close t :save t)
-                  #m(saveas2 album album-name)
-                  ;; Oldaltörés inicializálása.
-                  (setf *page-break-needed* nil)
-                  ;; Iteráció SZTSZ-eken:
-                  (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
-                    (dump (format nil "SZTSZ: ~a" sztsz))
-                    ;; SZTSZ adatainak beírása a dokumentumba.
-                    (if (add-template album
-                                      #p(value2 (used-range (xselect> ws-query
-                                                                      `(("SZTSZ" ,sztsz))))))
-                      (dump (format nil "   ok~%"))
-                      (dump (format nil "   HIBA!~%")))
-                    (move)))))))
-        (dump (format nil "~%~%~%~%")))
-      #m(quit word)
-      )))
+            (dump "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
+            ;; Új dokumentum létrehozása: dokumentum neve
+            (let ((album-name nil))
+            (with-xselection (selection ws-query `((,tk-head ,tk) ("SZK" ,ps)))
+              (setf album-name (newfile #p(value2 (used-range selection)))))
+            ;; Ha jelen személyi körhöz nincs definiálva doctype:
+            (if (not album-name)
+              (progn
+                (dump "~a személyi kör nincs definiálva.~%" ps)
+                (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
+                  (dump "SZTSZ: ~a   kihagyva~%" sztsz)
+                  (step-progress-indicator)))
+              ;; Ha van:
+              (with-document (album :app word :close t :save t)
+                #m(saveas2 album album-name)
+                ;; Oldaltörés inicializálása.
+                (setf *page-break-needed* nil)
+                ;; Iteráció SZTSZ-eken:
+                (xdouniq (sztsz ws-query "SZTSZ" :select `((,tk-head ,tk) ("SZK" ,ps)))
+                  (dump "SZTSZ: ~a" sztsz)
+                  ;; SZTSZ adatainak beírása a dokumentumba.
+                  (with-xselection (selection ws-query `(("SZTSZ" ,sztsz)))
+                    (if (add-template album #p(value2 (used-range selection)))
+                      (dump "   ok~%")
+                      (dump "   HIBA!~%")))
+                  (step-progress-indicator)
+                  (quit-on-abort))))))))
+      #m(quit word))))
 
 
 ;;; ----------------------------------------------------------------------
@@ -540,6 +539,7 @@
    "Kinevezés-generáló"
    (wg-options "Dokumentumtípus választása"
                #'(lambda (text &rest rest)
+                   (declare (ignore rest))
                    (setf *doctype* text))
                (mapcar #'(lambda (rec)
                            (getf rec :name))
@@ -548,27 +548,29 @@
                      "*.xlsx"
                      '("Excel fájlok" "*.xlsx" "Minden fájl" "*.*")
                      #'(lambda (text &rest rest)
+                         (declare (ignore rest))
                          (setf *xls-query* text))
                      *xls-query*)
    (wg-dir-selector "Dokumentumsablonok mappája"
                     #'(lambda (text &rest rest)
+                        (declare (ignore rest))
                         (setf *doc-template-dir* text
                               *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* text ))))
                     *doc-template-dir*)
    (wg-dir-selector "Generált dokumentumok mappája"
                     #'(lambda (text &rest rest)
+                        (declare (ignore rest))
                         (setf *out-dir* text))
                     *out-dir*)
    (wg-button "Dokumentumok generálása"
-              #'(lambda (if)
+              #'(lambda (interface)
+                  (wg-floating-message "Indítás ..." 10)
                   (save-state)
-                  (process)))))
+                  (process interface)))))
+
 
 
 ;;; ----------------------------------------------------------------------
 ;;; Sandbox
 
 
-(defun test01 (row)
-  (with-workbook (wbook :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\EXPORT_kinevezés.XLSX" :wsvars (ws))
-    (xcell ws :o row)))

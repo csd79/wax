@@ -26,38 +26,85 @@
     capi:progress-bar
     :accessor progress
     :start 0
-    :end 100))
+    :end 100)
+   (rest-time
+    capi:title-pane
+    :accessor rest-time
+    :text "")
+   (abort-button
+    capi:push-button
+    :accessor abort-button
+    :text "Megszakítás"
+    :callback-type :interface
+    :callback (:initarg abort-callback)))
   (:default-initargs
    :title "Feldolgozás"
    :best-x 735
-   :best-y 400))
+   :best-y 400
+   :window-styles '(:always-on-top
+                    :borderless
+                    :hides-on-deactivate
+                    :always-on-top
+                    :movable-by-window-background)))
 
 
-(defun init-progress (title buffername)
-  (let ((interface (make-instance 'progress :title title :buffer-name buffername)))
-    (capi:modify-editor-pane-buffer (text-dump interface) :contents "")
-    (capi:display interface)
-    interface))
+(defun timestr (secs)
+  (let* ((hours (truncate (/ secs 3600)))
+         (rem1  (- secs (* hours 3600)))
+         (mins  (truncate (/ rem1 60)))
+         (secs  (- rem1 (* mins 60)))
+         (accum '()))
+    (unless (zerop hours)
+      (push (format nil "~d:" hours) accum))
+    (push (format nil "~2,'0d:~2,'0d" mins secs) accum)
+    (apply #'concatenate 'string (nreverse accum))))
 
 
-(defmacro with-progress ((title mover dumper count &optional (buffername "temp")) &body body)
+(defmacro with-progress ((title parent-interface abort dumper mover count &optional (buffername "temp")) &body body)
   (let ((interface (gensym))
-        (i         (gensym)))
-  `(let ((,interface (init-progress ,title ,buffername))
-         (,i         0))
-     (flet ((,mover (&optional n)
-              (let ((percent (if (and n (numberp n) (<= n 100))
-                               n
-                               (progn
-                                 (incf ,i)
-                                 (round (* 100 (/ ,i ,count)))))))
-                (setf (capi:range-slug-start (progress ,interface)) percent)))
-            (,dumper (string)
-              (let* ((buffer (editor:buffer-from-name ,buffername))
-                     (point  (editor:buffers-end buffer)))
-                (editor:insert-string point string))))
-       ,@body
-       (,dumper (format nil "A feldolgozás véget ért, kérem zárja be ezt az ablakot.~%"))))))
+        (i (gensym))
+        (aborted (gensym))
+        (start-time (gensym)))
+    `(progn
+       (capi:destroy ,parent-interface)
+       (let* ((,aborted   nil)
+              (,interface (make-instance 'progress :title ,title :buffer-name ,buffername
+                                         :abort-callback #'(lambda (interface)
+                                                             (declare (ignore interface))
+                                                             (when (wg-confirm "Megszakítja a feldolgozást?")
+                                                               (setf ,aborted t)))))
+              (,i 0)
+              (,start-time (get-internal-real-time)))
+         (capi:modify-editor-pane-buffer (text-dump ,interface) :contents "")
+         (capi:display ,interface)
+         (block big-body
+           (flet ((,mover (&optional n)
+                    (let* ((percent (if (and n (numberp n) (<= n 100))
+                                      n
+                                      (progn
+                                        (incf ,i)
+                                        (round (* 100 (/ ,i ,count))))))
+                           (current-time (get-internal-real-time))
+                           (time-spent   (/ (- current-time ,start-time)
+                                            internal-time-units-per-second))
+                           (time-left    (* time-spent (/ 100 percent))))
+                      (setf (capi:range-slug-start (progress ,interface)) percent)
+                      (setf (capi:title-pane-text (rest-time ,interface))
+                            (format nil "Eltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
+                                    (timestr (round time-spent))
+                                    (timestr (round time-left))))))
+                  (,dumper (string &rest args)
+                    (ignore-errors
+                      (let* ((buffer (editor:buffer-from-name ,buffername))
+                             (point  (editor:buffers-end buffer)))
+                        (editor:insert-string point (apply #'format nil string args)))))
+                  (,abort ()
+                    (when ,aborted
+                      (return-from big-body))))
+             ,@body
+             (wg-msg "A feldolgozás véget ért.")))
+         (capi:destroy ,interface))
+       (capi:display ,parent-interface))))
 
 
 ;; ----------------------------------------------------------------------
@@ -70,7 +117,7 @@
    :title label
    :text text
    :buttons `(:browse-file
-              (:if-does-no-exist :prompt
+              (:if-does-not-exist :prompt
                :filter ,filter
                :filters ,filters)
               :ok nil)
@@ -85,7 +132,7 @@
    :text text
    :buttons `(:browse-file
               (:directory t
-               :if-does-no-exist :prompt
+               :if-does-not-exist :prompt
                :use-file-dialog t)
               :ok nil)
    :callback callback
@@ -96,6 +143,7 @@
   (make-instance
    'capi:option-pane
    :title label
+     
    :items items
    :selected-item (first items)
    :selection-callback callback))
@@ -103,11 +151,10 @@
 
 (defun wg-button (label callback)
   (make-instance
-   'capi:push-button-panel
-   :items (list label)
-   :layout-args '(:x-uniform-size-p t)
+   'capi:push-button
+   :text label
    :callback-type :interface
-   :callbacks (list callback)))
+   :callback callback))
 
 
 (defun wg-window (title &rest list)
@@ -120,5 +167,13 @@
    :title title))
 
 
-(defun ws-msg (string &rest rest)
+(defun wg-msg (string &rest rest)
   (apply #'capi:display-message string rest))
+
+
+(defun wg-floating-message (string &optional (timeout 4))
+  (capi:display-non-focus-message string :timeout timeout))
+
+
+(defun wg-confirm (string &rest rest)
+  (funcall #'capi:confirm-yes-or-no string rest))

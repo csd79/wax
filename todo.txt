@@ -13,11 +13,6 @@ doctemplate, newfile: legyen glob.változókkal irányított, általánosabb, é
 
 -----------------------------------------------------------------------------
 
-Meggyőződni arról, hogy ha lelőjjük a progress ablakot, akkor a háttérben nem folytatódik.
-Továbbá a main GUI-t (vagy legalábbis az indító gombot) deaktiválni kellene arra az időre, amíg a progress ablak látható.
-
------------------------------------------------------------------------------
-
 Excel munkalap és tömb közötti oda-vissza most explicit, ez jó.
 A tömböt is lehessen szűrni úgy, hogya szűrés visszaad egy vektort, amit odaadhatunk a tömb-iterálónak.
 Ezzel kiküszöbölhetnénk a folyamatos Excel szűréseket.
@@ -41,12 +36,7 @@ interface: transparency
 
 -----------------------------------------------------------------------------
 
-Mivel a program használja a vágólapot, ha közben egy másik alkalmazásban mi is használnánk, kavarodást okoznánk.
-Lehetőleg kivenni minden vágólap használatot, és/vagy figyelmeztetést jeleníteni meg hogy a futás ideje alatt ne használjuk a vágólapot, sem bármelyik dokumentumot ami érintett a műveletben.
-Mivel más módszert nem tudok:
-Úgy lenn elkerülhető a vágólap ha az egyes SZTSZ-eket külön dok-ba mentenénk, és végül ezeket InsertDoc-kal összeszednénk egy üres dokumentumba.
-Tehát ;... ha van alá:
-Az add-template mentsen egy új fájlt, és adja vissza a nevét. Ezeket gyűjtsük listába, majd a végén mindet egybe.
+Kitöltptt részek másolása vágólap nélkül?
 
 -----------------------------------------------------------------------------
 
@@ -54,24 +44,10 @@ cref-nek megvan a saját todo listája.
 
 -----------------------------------------------------------------------------
 
-Gyakornoki idő: oszlop hiányzik a lekérdezésből! (nem egészen)
-
------------------------------------------------------------------------------
-
-Tesztcsomag:
- legutóbbi B2 kinevezés-sablonokat megmagyarázni a programnak
- B2 teszhez összehasonlítót írni
- megírni a részt ami megkülönbözteti a kinevezést a módosításoktól
- és az ami megkülönbözteti a B1 NOKS-ot a kisegítőtől
-
------------------------------------------------------------------------------
-
 Ha a state-ből egy nemlétező fájl/mappa töltődik be, akkor mikor a gombra kattintunk, rögtön reklamál hogy nem létezik. Ez viselkedhetne ésszerűbben is.
 
------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 
-Ha nem kellene újra elindítani a Word-ot minden üres fájlhoz és sablonhoz, gyorsabb lenne. Őrzze meg az app-ot.
-
------------------------------------------------------------------------------
-
-wg-progress: dump-ot újraírni úgy, hogy egy stream legyen amibe írni lehet, és az jelenik meg a kimenei ablakban.
+SZTSZ: 10099476
+Dr. Gajda Péter Pál
+Neki 3 db. AJ ösztöndíjja van. Mit hoz a program?   módosítás B2
