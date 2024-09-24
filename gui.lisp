@@ -41,10 +41,9 @@
    :title "Feldolgozás"
    :best-x 735
    :best-y 400
-   :window-styles '(:always-on-top
-                    :borderless
-                    :hides-on-deactivate
-                    :always-on-top
+   :window-styles '(:borderless
+                    :shadowed
+;                    :hides-on-deactivate
                     :movable-by-window-background)))
 
 
@@ -60,18 +59,19 @@
     (apply #'concatenate 'string (nreverse accum))))
 
 
-(defmacro with-progress ((title parent-interface abort dumper mover count &optional (buffername "temp")) &body body)
+(defmacro with-progress ((title abort dumper mover count &optional (buffername "temp")) &body body)
   (let ((interface (gensym))
         (i (gensym))
         (aborted (gensym))
         (start-time (gensym)))
     `(progn
-       (capi:destroy ,parent-interface)
+;       (capi:hide-interface ,parent-interface)
        (let* ((,aborted   nil)
               (,interface (make-instance 'progress :title ,title :buffer-name ,buffername
                                          :abort-callback #'(lambda (interface)
                                                              (declare (ignore interface))
                                                              (when (wg-confirm "Megszakítja a feldolgozást?")
+                                                               (wg-floating-message "Megszakítás ...")
                                                                (setf ,aborted t)))))
               (,i 0)
               (,start-time (get-internal-real-time)))
@@ -87,7 +87,7 @@
                            (current-time (get-internal-real-time))
                            (time-spent   (/ (- current-time ,start-time)
                                             internal-time-units-per-second))
-                           (time-left    (* time-spent (/ 100 percent))))
+                           (time-left    (- (* time-spent (/ 100 percent)) time-spent)))
                       (setf (capi:range-slug-start (progress ,interface)) percent)
                       (setf (capi:title-pane-text (rest-time ,interface))
                             (format nil "Eltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
@@ -102,9 +102,11 @@
                     (when ,aborted
                       (return-from big-body))))
              ,@body
-             (wg-msg "A feldolgozás véget ért.")))
+             (wg-msg "A feldolgozás véget ért.")
+             ))
          (capi:destroy ,interface))
-       (capi:display ,parent-interface))))
+;       (capi:show-interface ,parent-interface)
+       )))
 
 
 ;; ----------------------------------------------------------------------
