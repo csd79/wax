@@ -113,6 +113,15 @@
 ;; Main window
 
 
+(defun wg-text-input (label callback text)
+  (make-instance
+   'capi:text-input-pane
+   :title label
+   :text text
+   :callback callback
+   :change-callback callback))
+
+
 (defun wg-file-selector (label filter filters callback text)
   (make-instance
    'capi:text-input-pane

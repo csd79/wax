@@ -20,6 +20,9 @@
 
 (defparameter *school-year-end*  45900) ; 2025.08.31.
 
+(defparameter *mod-start-def*    "2024. szeptember 1.")
+(defparameter *mod-start*        *mod-start-def*)
+
 
 ;;; ----------------------------------------------------------------------
 ;;; Generálható dokumentumtípusok
@@ -57,8 +60,8 @@
       (,(szk-fn "B8") "B8" "Kinevezésmódosítás_egyoldalú_ped. szakkép. noks.docx")
       (,(szk-fn "B9") "B9" "Kinevezésmódosítás_egyoldalú_nem ped. szakkép. noks.docx")))
 
-    (:name "Kétoldalú kinevezésmódosítás"
-     :dir  "Kétoldalú kinevezésmódosítás"
+    (:name "Kétoldalú kinevezésmódosítások"
+     :dir  "Kétoldalú kinevezésmódosítások"
      :szk
      ((,(szk-fn "B2") "B2" "Kinevezésmódosítás_kétoldalú_pedagógus.docx")
       (,(szk-fn "B8") "B8" "Kinevezésmódosítás_kétoldalú_ped. szakkép. noks.docx")
@@ -253,10 +256,16 @@
          (first (str:words a)))))
 
     ("állományába $………………$ köznevelési"
-     ,(vals-fn ((a "Kinevezés/szerzõdés jellege") (b "Szerz.vége"))
+     ,(vals-fn ((a "Kinevezés/szerzõdés jellege") (b "Szerz.vége") (c "Hely.dolg.neve."))
         (if (string= a "Határozatlan id.kine")
           "határozatlan idejû"
-          (format nil "tartósan távollévõ helyettesítése céljából határozott ideig, várhatóan ~a napjáig tartó" (excel-date-string b :words t)))))
+          (format nil "~a tartósan távollévõ helyettesítése céljából határozott ideig, várhatóan ~a napjáig tartó"
+                  (if (empty-cell-p c)
+                    "………………"
+                    (astring-capitalize c))
+                  (if (empty-cell-p b)
+                    "………………"
+                    (excel-date-string b :words t))))))
 
     ("$A …-jogszabály-… alapján próbaidõ nem köthetõ ki.$^M"
      ,(vals-fn ((szk "SZK") (bd "Belépés dátuma") (pv "Próbaidõ  vége"))
@@ -309,6 +318,10 @@
             (concatenate 'string "^MA  pedagógusok új életpályájáról szóló 2023. évi LII. törvény végrehajtásáról szóló 401/2023. (VIII. 30.) Korm. rendelet (a továbbiakban: Púétv. vhr.) 37. § (1)-(13) bekezdése alapján az Ön gyakornoki ideje " bd-str " napjától ………………  napjáig tart, minõsítõ vizsgát " vh-str " napjáig köteles tenni. Amennyiben a minõsítõ vizsgája sikeres, a Púétv. vhr. 37. § (8) bekezdése alapján Önt Pedagógus I. fokozatba kell besorolni.^M^M")
             ""))))
 
+    ("módosítom.^M^MHavi illetményét $………………$ napi hatállyal"
+     ,(vals-fn ()
+        *mod-start*))
+
     ("Havi illetményét $………………$ napi hatállyal"
      ,(vals-fn ((a "Belépés dátuma"))
         (excel-date-string a :words t)))
@@ -346,7 +359,7 @@
                                        (cond ((member code '("1114" "1115") :test #'string=)
                                               (list (excel-date-string (1114-1115-end hiv))))
                                              ((and (string/= code "1P00")
-                                                   end
+                                                   (not (empty-cell-p end)) ;;;;;;;;;;;;;;;;;;;;;
                                                    (/= end 2958465))
                                               (list (excel-date-string end :words t)))
                                              (t nil)))))
@@ -383,24 +396,137 @@
      ,(vals-fn ((a "Név"))
         (clean-name a)))
 
-#|    ("$23$"
-     ,(vals-fn ((a "Vállalat hosszú megnevezése"));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    ("egyrészrõl $………………$ Tankerületi Központ"
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (add-article
+         (first (str:words a)))))
+
+    ("(székhelye: $………………$, t"
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (sixth (get-tk-data a))))
+
+    ("nyvi azonosító szám: $………………$, ké"
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (round (fifth (get-tk-data a)))))
+
+    (", képviseli: $………………$ tankerületi igazgató)"
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (third (get-tk-data a))))
 
-    ("$24$"
-     ,(vals-fn () :fees fees
-        (currency (getf (find-fee "1100" fees) :sum))));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    (", másrészrõl $………………$ (szül"
+     ,(vals-fn ((a "Név"))
+        (clean-name a)))
+    
+    (" (születési neve: $………………$, szül"
+     ,(vals-fn ((a "Születési vezetéknév") (b "Születési utónév") (c "2.születési utónév"))
+        (clean-name (str:unwords (list a b c)))))
+    
+    (", születési helye és ideje: $………………$, any"
+     ,(vals-fn ((a "Születési hely") (b "Születési dátum"))
+        (concatenate 'string (clean-name a) ", " (excel-date-string b :words t))))
 
-    ("$25$"
+    (", anyja neve: $………………$) mint"
+     ,(vals-fn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
+        (clean-name (str:unwords (list a b c)))))
+
+    ("A munkáltató a munkavállalót $………………$ napjától"
+     ,(vals-fn ((a "Belépés dátuma"))
+        (excel-date-string a :words t)))
+
+    ("napjától $………………$ munkaviszony keretében"
+     ,(vals-fn ((a "Kinevezés/szerzõdés jellege") (b "Próbaidõ  vége") (c "Hely.dolg.neve."))
+        (if (string= a "Határozatlan id.kine")
+          "határozatlan idejû"
+          (format nil "~a tartósan távollévõ helyettesítése céljából határozott ideig, várhatóan ~a napjáig tartó"
+                  (if (string/= c "")
+                    (astring-capitalize c)
+                    "………………")
+                  (if (empty-cell-p b)
+                    "………………"
+                    (excel-date-string b :words t))))))
+    
+    ("^MMunkavégzés helye: $……………………………………………………$, cím^M"
+     ,(vals-fn ((a "szervezeti egys hosszú megnev."))
+        (str:unwords (str:words
+         (str:trim a)))))
+
+    ("munkavállaló havi bruttó alapbére $……………… Ft, azaz ………………$ forint."
      ,(vals-fn () :fees fees
-        (let ((sum (getf (find-fee "1100" fees) :sum)));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-          (when sum
-            (sub->words sum)))))|#
+        (destructuring-bind (&key code name sum start end)
+            (first fees)
+          (declare (ignore code name start end))
+          (format nil "~a Ft, azaz ~a."
+                  (currency sum)
+                  (sub->words sum)))))
+
+    ("^M$………………$, 2024. "
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (second (get-tk-data a))))
+
+    ("Pénzügyileg ellenjegyzem.^M^M$………………………………$, "
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (second (get-tk-data a))))
+
+    (,(format nil "~C$………………$~C………………^M~Ctankerületi igazgató" #\tab #\tab #\tab)
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (third (get-tk-data a))))
+
+    (,(format nil "$………………$^M~Ctitulus^M" #\tab)
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (fourth (get-tk-data a))))
+    
+    (,(format nil "~C$………………$^M~Ctankerületi igazgató~Cmunkavállaló^M" #\tab #\tab #\tab)
+     ,(vals-fn ((a "Név"))
+        (clean-name a)))
+
+    ("számára^M^M^M$………………$ Tankerületi Központnál "
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (astring-capitalize 
+         (add-article
+          (first (str:words a))))))
+
+    (" Tankerületi Központnál $………………$ napjától fennálló köznevelési "
+     ,(vals-fn ((a "Belépés dátuma"))
+        (excel-date-string a :words t)))
+
+    ("az Ön kinevezését $………………$ napi hatállyal az alábbiak"
+     ,(vals-fn ()
+        *mod-start*))
+
+    ("számára^M^M^M$………………$ Tankerületi Központ ("
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (astring-capitalize 
+         (add-article
+          (first (str:words a))))))
+
+    ("A felek megállapodnak abban, hogy a közöttük $………………$ napjától f"
+     ,(vals-fn ((a "Belépés dátuma"))
+        (excel-date-string a :words t)))
+
+    ("közös megegyezéssel $………………$ napi hatállyal "
+     ,(vals-fn ()
+        *mod-start*))
+    
+    ("Központnál mint munkáltatónál $………………$ napjától fennálló"
+     ,(vals-fn ((a "Belépés dátuma"))
+        (excel-date-string a :words t)))
+
+    ("A munkáltatónál $………………$ napjától fennálló "
+     ,(vals-fn ((a "Belépés dátuma"))
+        (excel-date-string a :words t)))
+
+    ("elõresorolom Önt $………………$ fokozatba."
+     ,(vals-fn ((a "Bérrendsz. csop név"))
+        (str:unwords (str:words
+         (str:trim a)))))
+
+    
+    
 ))
 
 
 (defun temp-target (temp)
-  (let* ((external (ccom::carriage-return temp))
+  (let* ((external (carriage-return temp))
          (start    (position #\$ external))
          (end      (position #\$ external :from-end t))
          (clean    (concatenate
@@ -420,45 +546,12 @@
         (cclet* ((range  (if range-fn
                            (funcall range-fn current)
                            #p(content current)))
-                 (found  (ccom::range-find-text range clean)))
+                 (found  (range-find-text range clean)))
           (when found
             (cclet* ((start (+ found start-offset))
                      (end   (+ found end-offset))
                      (text  (format nil "~a" (funcall val-fn xarray))))
               (selection-overwrite range start end text))))))))
-
-
-#|;;; Original version using the clipboard.
-(defun add-template (doc xarray)
-  ;; Új temp file dok.sablon alapján
-  (cclet* ((temp-name (doctemplate xarray))
-           (word      #p(application doc)))
-    (when temp-name
-      (with-document (current :app word :open-file temp-name :read-only t :close t)
-        ;; Adatok beillesztése táblázatból
-        (fill-template current xarray)
-        (if *page-break-needed*
-          #m(insertbreak (end-of-doc doc) +wd-section-break-next-page+)
-          (setf *page-break-needed* t))
-        ;; Jelen SZTSZ dok.törzs másolása
-        #m(select current)
-        #m(copy #p(selection #p(parent current)))
-        #m(paste (end-of-doc doc))
-        ;; 1. oldali fejléc/lábléc másolása
-        (cclet* ((sect-src #p(first #p(sections current)))
-                 (sect-trg #p(last  #p(sections doc)))
-                 (head-src #p(range #m(item #p(headers sect-src) +wd-header-footer-first-page+)))
-                 (head-trg #p(range #m(item #p(headers sect-trg) +wd-header-footer-first-page+)))
-                 (foot-src #p(range #m(item #p(footers sect-src) +wd-header-footer-first-page+)))
-                 (foot-trg #p(range #m(item #p(footers sect-trg) +wd-header-footer-first-page+))))
-          #m(copy  head-src)
-          #m(paste head-trg)
-          #m(copy  foot-src)
-          #m(paste foot-trg)
-          (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t)))
-      ;; Eredmény állapotának mentése
-      #m(save doc)
-      t)))|#
 
 
 (defparameter *page-break-needed*         nil)
@@ -511,8 +604,7 @@
           ;; Oldalszámozás kezdése 1-tõl (elsõ oldalt is beleszámítva)
           (setf #p(startingnumber pg-nums) 1)
           ;; Elsõ oldalon eltérõ fejléc/lábléc
-          (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t))
-        )
+          (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t)))
       ;; Eredmény állapotának mentése
       #m(save doc)
       t)))
@@ -520,82 +612,6 @@
 
 (defun line (n &optional (char #\-))
   (format nil "~v@{~A~:*~}" n char))
-
-#|(defun process ()
-  (with-workbook (wbook :open-file *xls-query* :read-only t :wsvars (ws-query) :close t)
-    (cclet* ((tk-head "Vállalat hosszú megnevezése")
-             (word    (com:create-object :progid "Word.Application")))
-      ;; Progress bar
-      (with-progress ("Dokumentumok generálása" quit-on-abort dump step-progress-indicator
-                      (length (xcol-uniques ws-qu
-        (if *page-break-needed*
-          #m(insertbreak (end-of-doc doc) +wd-section-break-next-page+)
-          (setf *page-break-needed* t))
-        ;; Jelen SZTSZ dok. másolása
-        (cclet* ((sect-src #p(first #p(sections current)))
-                 (sect-trg #p(last  #p(sections doc))))
-          ;; Törzs
-          (copy-via-fragment #p(formattedtext #p(range sect-src))
-                             #p(range sect-trg))
-          ;; Fejléc
-          (copy-via-fragment #p(formattedtext #p(range #m(item #p(headers sect-src) +wd-header-footer-first-page+)))
-                             #p(range #m(item #p(headers sect-trg) +wd-header-footer-first-page+)))
-          ;; Lábléc
-          (copy-via-fragment #p(formattedtext #p(range #m(item #p(footers sect-src) +wd-header-footer-first-page+)))
-                             #p(range #m(item #p(footers sect-trg) +wd-header-footer-first-page+)))
-          ;; Szekció elsõ oldal egyedi fejléc/lábléc
-          (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t)))
-      ;; Eredmény állapotának mentése
-      #m(save doc)
-      t)))|#
-
-
-;;; Newer version using fragments.
-#|(defun add-template (doc xarray)
-  ;; Új temp file dok.sablon alapján
-  (cclet* ((temp-name (doctemplate xarray))
-           (word      #p(application doc)))
-    (when temp-name
-      (with-document (current :app word :open-file temp-name :read-only t :close t)
-        ;; Adatok beillesztése táblázatból
-        (fill-template current xarray)
-        ;; Oldaltörés beillesztése
-        (if *page-break-needed*
-          #m(insertbreak (end-of-doc doc) +wd-section-break-next-page+)
-          (setf *page-break-needed* t))
-        ;; Jelen SZTSZ dok. másolása
-        (cclet* ((sect-src #p(range #p(first #p(sections current))))
-                 (sect-trg #p(range #p(last  #p(sections doc)))))
-          #m(wholestory sect-src)
-          (copy-via-fragment #p(formattedtext sect-src) sect-trg)
-          (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t)))
-      ;; Eredmény állapotának mentése
-      #m(save doc)
-      t)))|#
-
-
-#|;;; Newest version using importfile
-(defun add-template (doc xarray)
-  ;; Új temp file dok.sablon alapján
-  (cclet* ((temp-src   (doctemplate xarray))
-           (temp-saved (tempfile))
-           (word       #p(application doc)))
-    (when temp-src
-      (with-document (current :app word :open-file temp-src :close t :save t)
-        #m(saveas2 current temp-saved)
-        ;; Adatok beillesztése táblázatból
-        (fill-template current xarray))
-      ;; Oldaltörés beillesztése gyûjtõfájlba
-      (if *page-break-needed*
-        #m(insertbreak (end-of-doc doc) +wd-section-break-next-page+)
-        (setf *page-break-needed* t))
-      ;; Jelen SZTSZ dok. másolása
-      (cclet* ((sect-trg #p(range #p(last  #p(sections doc)))))
-        #m(insertfile sect-trg temp-saved))
-;      (delete-file temp-saved)
-      ;; Eredmény állapotának mentése
-      #m(save doc)
-      t)))|#
 
 
 (defun line (n &optional (char #\-))
@@ -608,8 +624,6 @@
       ;; Progress bar
       (with-progress ("Dokumentumok generálása" quit-on-abort dump step-progress-indicator
                       (length (xcol-uniques ws-query "SZTSZ")))
-#|        ;; Figyelmeztetés a vágólap használatával kapcsolatban.
-        (dump "A program futása közben kérem ne használja a vágólapot!~%~%~%")|#
         (dump "~%~%")
         ;; Iteráció TK-kon.
         (xdouniq (tk ws-query tk-head)
@@ -643,9 +657,7 @@
                         (dump "  HIBA!~%")))
                     (step-progress-indicator)
                     (quit-on-abort))))))))
-    ;)))))
       #m(quit word))))
-;)
 
 
 ;;; ----------------------------------------------------------------------
@@ -655,24 +667,26 @@
 (defun save-state ()
   (save-forms
    (appfile "state.txt")
-   `(:doctype ,*doctype*
-     :query1  ,*xls-query*
-     :query2  ,*xls-query2*
-     :tempdir ,*doc-template-dir*
-     :outdir  ,*out-dir*)))
+   `(:doctype  ,*doctype*
+     :query1   ,*xls-query*
+     :query2   ,*xls-query2*
+     :tempdir  ,*doc-template-dir*
+     :outdir   ,*out-dir*
+     :modstart ,*mod-start*)))
 
 
 (defun load-state ()
   (let ((state (first (load-forms "state.txt"))))
     (when state
-      (destructuring-bind (&key doctype query1 query2 tempdir outdir &allow-other-keys)
+      (destructuring-bind (&key doctype query1 query2 tempdir outdir modstart &allow-other-keys)
           state
         (setf *doctype*          doctype
               *xls-query*        query1
               *xls-query2*       query2
               *doc-template-dir* tempdir
               *out-dir*          outdir
-              *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* tempdir)))))))
+              *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* tempdir))
+              *mod-start*        modstart)))))
 
 
 (defun init-state ()
@@ -681,7 +695,8 @@
         *xls-query2*       ""
         *doc-template-dir* (appdir)
         *out-dir*          (appdir)
-        *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* (appdir)))))
+        *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* (appdir)))
+        *mod-start*        *mod-start-def*))
 
 
 (defparameter *runningp* nil)
@@ -699,6 +714,11 @@
                (mapcar #'(lambda (rec)
                            (getf rec :name))
                        *doctypes*))
+   (wg-text-input "Módosítás érvényesség kezdõdátuma (kinev.módosítás esetén)"
+                  #'(lambda (text &rest rest)
+                      (declare (ignore rest))
+                      (setf *mod-start* text))
+                  *mod-start*)
    (wg-file-selector "SAP lekérdezés eredménye"
                      "*.xlsx"
                      '("Excel fájlok" "*.xlsx" "Minden fájl" "*.*")
@@ -731,30 +751,8 @@
 ;;; ----------------------------------------------------------------------
 ;;; Sandbox
 
- 
-#|(defun t1 ()
-  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmények\\Zalaegerszegi TK B9 kinevezés.docx" :read-only t :close t :save t)
-    (with-document (temp :save t)
-      #m(saveas2 temp "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmények\\temp.docx")
-      (cclet* ((temp-range #p(formattedtext #p(content temp)))
-               (doc-src    #p(content doc))
-;               (doc-trg    (end-of-doc doc))
-;               (stuff      #p(formattedtext doc-src))
-               )
-        #m(collapse temp-range 0)
-;        #m(collapse doc-trg 1)
-;        (com:invoke-dispatch-put-property temp "Content"  #p(formattedtext doc-src))))))
-;        (com:invoke-dispatch-put-property temp-range "FormattedText" #p(formattedtext doc-src))))))
-;        (com:invoke-dispatch-put-property temp-range "FormattedText" #p(duplicate #p(formattedtext doc-src)))))))
-;        (com:invoke-dispatch-put-property temp-range "FormattedText" #p(formattedtext doc-src))))))
-        (com:invoke-dispatch-put-property temp-range "FormattedText" stuff)))))
 
-
-(defun t2 ()
-  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmények\\Zalaegerszegi TK B9 kinevezés.docx" :close t :save t)
-    #m(exportfragment #p(formattedtext #p(content doc))
-                      "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmények\\temp.docx"
-                      16)
-    #m(insertbreak (end-of-doc doc) +wd-section-break-next-page+)
-    #m(importfragment (end-of-doc doc) "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmények\\temp.docx")))
-|#
+(defun t1 ()
+;  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\Kinevezések\\Munkaszerzõdés_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx" :read-only t)
+  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\Kinevezések\\Munkaszerzõdés_noks munkakör_munkavállaló.docx" :read-only t)
+    (range-find-text #p(content doc) (temp-target "(székhelye: $………………$, t"))))
