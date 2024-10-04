@@ -27,12 +27,24 @@
     (remove-duplicates (xcol-values wsheet column :start start) :test test-fn)))
 
 
-(defmacro xdouniq ((e wsheet column &key (start 2) (test :auto) (select '())) &body body)
+#|(defmacro xdouniq ((e wsheet column &key (start 2) (test :auto) (select '())) &body body)
   (let ((filtered (gensym)))
     `(cclet* ((,filtered (if ,select
                            (xselect> ,wsheet ,select)
                            ,wsheet)))
        (loop for ,e across (xcol-uniques ,filtered ,column :start ,start :test ,test) doing
+             ,@body))))|#
+
+
+(defmacro xdouniq ((e wsheet column &key (start 2) (test :auto) (select '())) &body body)
+  (let ((filtered (gensym)))
+    `(if ,select
+       ;; With selection subscripts provided
+       (with-xselection (,filtered ,wsheet ,select)
+         (loop for ,e across (xcol-uniques ,filtered ,column :start ,start :test ,test) doing
+               ,@body))
+       ;; Without subscripts
+       (loop for ,e across (xcol-uniques ,wsheet ,column :start ,start :test ,test) doing
              ,@body))))
 
 
@@ -63,7 +75,7 @@
 ;; Word stuff
 
 
-(defun select-bookmark (document bookmark &key (if-not-found :skip))
+#|(defun select-bookmark (document bookmark &key (if-not-found :skip))
   (multiple-value-bind (value error)
       (ignore-errors
         #m(select #m(item #p(bookmarks document) bookmark))
@@ -85,7 +97,7 @@
     (when select
       #m(typetext select notnull)
       (when (string= string "")
-        #m(typebackspace select)))))
+        #m(typebackspace select)))))|#
 
 
 

@@ -181,7 +181,7 @@
 
 
 (defun read-tk-data (tk)
-  (with-workbook (wbook :open-file *xls-tks* :read-only t :wsvars (help) :close t)
+  (with-workbook (:open-file *xls-tks* :read-only t :wsvars (help) :close t)
     (let ((row (locate-row help "TK" tk #'string=)))
       (cons tk (mapcar #'(lambda (title)
                            (xcell help title row))
@@ -273,7 +273,7 @@
                          "………"
                          (excel-date-string pv :words t)))
                (period (concatenate 'string (excel-date-string bd :words t) " napjától " pv-str))
-               (b1-prob (concatenate 'string "A munka törvénykönyvérõl szóló 2012. évi I. törvény (a továbbiakban: Mt.) 45. § (5) bekezdése alapján a felek " period "napjáig terjedõ próbaidõt kötnek ki, amely idõtartam alatt a munkaviszonyt az Mt. 79. § (1) bekezdésének a) pontja alapján bármelyik fél azonnali hatályú felmondással – indokolás nélkül – megszüntetheti."))
+               (b1-prob (concatenate 'string "A munka törvénykönyvérõl szóló 2012. évi I. törvény (a továbbiakban: Mt.) 45. § (5) bekezdése alapján a felek " period " napjáig terjedõ próbaidõt kötnek ki, amely idõtartam alatt a munkaviszonyt az Mt. 79. § (1) bekezdésének a) pontja alapján bármelyik fél azonnali hatályú felmondással – indokolás nélkül – megszüntetheti."))
                (bx-prob (concatenate 'string "A Púétv. 41. § (1) bekezdése alapján " period " napjáig tartó próbaidõt kötök ki, amely idõtartam alatt a köznevelési foglalkoztatotti jogviszonyt a Púétv. 41. § (4) bekezdése és 46. § (2) bekezdésének a) pontja alapján bármelyik fél indokolás nélkül azonnali hatállyal megszüntetheti.")))
           (if (string= szk "B1")
             (if (empty-cell-p pv)
@@ -320,6 +320,7 @@
 
     ("módosítom.^M^MHavi illetményét $………………$ napi hatállyal"
      ,(vals-fn ()
+        (declare (ignore xarray))
         *mod-start*))
 
     ("Havi illetményét $………………$ napi hatállyal"
@@ -354,6 +355,8 @@
                                        ;; Megállapítás idõszak kezdete
                                        (cond ((member code '("1P00" "1116") :test #'string=)
                                               nil) ; Ha havi ill. vagy mesterfok.: nem kell
+                                             ((member code '("1114" "1115") :test #'string=)
+                                              (list *mod-start*))
                                              (t (list (excel-date-string (or start bd) :words t))))
                                        ;; vége dátum - ha nem hav ill. és a táblázati érték nem 9999.12.31.
                                        (cond ((member code '("1114" "1115") :test #'string=)
@@ -452,10 +455,11 @@
 
     ("munkavállaló havi bruttó alapbére $……………… Ft, azaz ………………$ forint."
      ,(vals-fn () :fees fees
+        (declare (ignore xarray))
         (destructuring-bind (&key code name sum start end)
             (first fees)
           (declare (ignore code name start end))
-          (format nil "~a Ft, azaz ~a."
+          (format nil "~a Ft, azaz ~a"
                   (currency sum)
                   (sub->words sum)))))
 
@@ -491,6 +495,7 @@
 
     ("az Ön kinevezését $………………$ napi hatállyal az alábbiak"
      ,(vals-fn ()
+        (declare (ignore xarray))
         *mod-start*))
 
     ("számára^M^M^M$………………$ Tankerületi Központ ("
@@ -555,11 +560,6 @@
 
 
 (defparameter *page-break-needed*         nil)
-(defconstant  +wd-section-break-next-page+  2)
-(defconstant  +wd-format-document-default+ 16)
-(defconstant  +wd-header-footer-first-page+ 2)
-(defconstant  +wd-header-footer-primary+    1)
-(defconstant  +wd-align-page-number-center+ 1)
 
 
 (defun copy-via-fragment (from to)
@@ -580,8 +580,6 @@
     (when temp-name
       (with-document (current :app word :open-file temp-name :read-only t :close t)
         ;; Adatok beillesztése táblázatból
-        (fill-template current xarray)
-        ;; Oldaltörés beillesztések beillesztése táblázatból
         (fill-template current xarray)
         ;; Oldaltörés beillesztése
         (if *page-break-needed*
@@ -614,11 +612,8 @@
   (format nil "~v@{~A~:*~}" n char))
 
 
-(defun line (n &optional (char #\-))
-  (format nil "~v@{~A~:*~}" n char))
-
 (defun process ()
-  (with-workbook (wbook :open-file *xls-query* :read-only t :wsvars (ws-query) :close t)
+  (with-workbook (:open-file *xls-query* :read-only t :wsvars (ws-query) :close t)
     (cclet* ((tk-head "Vállalat hosszú megnevezése")
              (word    (com:create-object :progid "Word.Application")))
       ;; Progress bar
@@ -654,7 +649,8 @@
                     (with-xselection (selection ws-query `(("SZTSZ" ,sztsz)))
                       (if (add-template album #p(value2 (used-range selection)))
                         (dump "  ok~%")
-                        (dump "  HIBA!~%")))
+                        (dump "  HIBA!~%"))
+                      )
                     (step-progress-indicator)
                     (quit-on-abort))))))))
       #m(quit word))))
@@ -700,6 +696,7 @@
 
 
 (defparameter *runningp* nil)
+(defparameter *filereq-filter-xlsx* '("Excel fájlok" "*.xlsx" "Minden fájl" "*.*"))
 
 
 (defun start ()
@@ -720,8 +717,8 @@
                       (setf *mod-start* text))
                   *mod-start*)
    (wg-file-selector "SAP lekérdezés eredménye"
-                     "*.xlsx"
-                     '("Excel fájlok" "*.xlsx" "Minden fájl" "*.*")
+                     (second *filereq-filter-xlsx*)
+                     *filereq-filter-xlsx*
                      #'(lambda (text &rest rest)
                          (declare (ignore rest))
                          (setf *xls-query* text))
@@ -752,7 +749,3 @@
 ;;; Sandbox
 
 
-(defun t1 ()
-;  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\Kinevezések\\Munkaszerzõdés_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx" :read-only t)
-  (with-document (doc :open-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\Kinevezések\\Munkaszerzõdés_noks munkakör_munkavállaló.docx" :read-only t)
-    (range-find-text #p(content doc) (temp-target "(székhelye: $………………$, t"))))

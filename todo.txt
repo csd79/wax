@@ -1,15 +1,50 @@
+A megszakítás beragadt Exceleket eredményez!
+Az lenne a jó, ha app kilépéskor megnézni hogy az interface él-e, egyébként pedig a spare
+megnyitott app interfész pointereket egy globális listába gyűjtené, és befejezéskor egy CLEAN-APP fn-nyel minden megmaradt app példányt bezárna.
+EZ NEM ELÉG. LÉPTETNI KELL A process-T ÉS NÉZNI HOGY HOL JÖNNEK AZ ÚJ PÉLDÁNYOK!
+Nem jöttem még rá, de most eltűnnek az Excelek, ha bezárjuk a fő ablakot. (Talán mert ekkor COM uninitialize történik. Valahol kötve vannak ezek az objektumok, ki kell de) ?!?!
 
-A kétoldalú módosításhoz két lekérdezés kell, ez ott lehetne a GUI-n, de csak akkor választható ha 2-oldalút választunk a listából.
+Elvileg a COM csak a process futása alatt van inicializálva. Végső soron támaszkodhatunk erre is, de jó lenne ha az Excelek is bezáródnának, mint a Word-ok.
+Nézzük meg egyes pontokon, az init számláló mennyi.
 
------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 
-Fájl-requesterhez filter/filters legyen egy listában.
+Dokumentumok összecsúszhatnak. Mindig a következő páratlan oldalon kell kezdődnie az SZTSZ-nek!
+Legyen egy kapcsoló a felületen erre.
 
------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 
-doctemplate, newfile: legyen glob.változókkal irányított, általánosabb, és átteni wax-ba.
+Felületre kapcsoló: dokumentumok generálása külön vagy egybe?
 
------------------------------------------------------------------------------
+----------------------------------------------------------------------------
+
+Heti munkaideje: …… óra teljes munkaidő/részmunkaidő/csökkentett munkaidő
+Ha 40 óra: teljes munkaidő
+Ha nem 40: többnyire részmunkaidő, de néhány esetben csökkentett.
+Írja be a fentiek szerint, és emelje ki színnel, ha kétséges (rész- v. csökkentett)
+Legyen minden sablonban egységes a szöveg, hogy csak egy csere fn kelljen.
+
+----------------------------------------------------------------------------
+
+Az XFILTER> is vágólapot használ!!!
+
+----------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
 
 Excel munkalap és tömb közötti oda-vissza most explicit, ez jó.
 A tömböt is lehessen szűrni úgy, hogya szűrés visszaad egy vektort, amit odaadhatunk a tömb-iterálónak.
@@ -21,6 +56,38 @@ Excel-típusok helyes kezelése? Milyen jó lenne, ha egy kiolvasott tömbben az
 Pontosan mi a különbség a value2 és value között?
 
 -----------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+A kétoldalú módosításhoz két lekérdezés kell, ez ott lehetne a GUI-n, de csak akkor választható ha 2-oldalút választunk a listából.
+
+-----------------------------------------------------------------------------
+
 
 Keretprogram.
 wax/utils: compile-and-load, hotload...
@@ -38,16 +105,8 @@ cref-nek megvan a saját todo listája.
 
 -----------------------------------------------------------------------------
 
-Ha a state-ből egy nemlétező fájl/mappa töltődik be, akkor mikor a gombra kattintunk, rögtön reklamál hogy nem létezik. Ez viselkedhetne ésszerűbben is.
-
-----------------------------------------------------------------------------
-
 Tanév vége változó legyen a felületen.
 Kell hozzá fn ami dátum szöveget Excel dátum számmá alakít.
-
-----------------------------------------------------------------------------
-
-HIBA ESETÉN A FOLYAMAT ABLAK ZÁRÓDJON BE!!!!
 
 ----------------------------------------------------------------------------
 
@@ -61,7 +120,4 @@ Progress window: mindig tegye a kurzort a szöveg aljára.
 
 ----------------------------------------------------------------------------
 
-A megszakítás beragadt Exceleket eredményez!
-Az lenne a jó, ha app kilépéskor megnézni hogy az interface él-e, egyébként pedig a spare
-megnyitott app interfész pointereket egy globális listába gyűjtené, és befejezéskor egy CLEAN-APP fn-nyel minden megmaradt app példányt bezárna.
 
