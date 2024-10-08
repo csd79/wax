@@ -550,7 +550,7 @@
           (temp-target temp)
         (cclet* ((range  (if range-fn
                            (funcall range-fn current)
-                           #p(content current)))
+                           #~('content current)))
                  (found  (range-find-text range clean)))
           (when found
             (cclet* ((start (+ found start-offset))
@@ -561,13 +561,12 @@
 
 (defparameter *page-break-needed*         nil)
 
-
 (defun copy-via-fragment (from to)
   (let ((fragment (tempfile)))
-    #m(exportfragment #p(formattedtext from)
+    (#_exportfragment #~('formattedtext from)
                       fragment
                       +wd-format-document-default+)
-    #m(importfragment to fragment)
+    (#_importfragment to fragment)
     (delete-file fragment)
     ))
 
@@ -576,35 +575,35 @@
 (defun add-template (doc xarray)
   ;; Új temp file dok.sablon alapján
   (cclet* ((temp-name (doctemplate xarray))
-           (word      #p(application doc)))
+           (word      #~('application doc)))
     (when temp-name
       (with-document (current :app word :open-file temp-name :read-only t :close t)
         ;; Adatok beillesztése táblázatból
         (fill-template current xarray)
         ;; Oldaltörés beillesztése
         (if *page-break-needed*
-          #m(insertbreak (end-of-doc doc) +wd-section-break-next-page+)
+          (#_insertbreak (end-of-doc doc) +wd-section-break-next-page+)
           (setf *page-break-needed* t))
         ;; Jelen SZTSZ dok. másolása
-        (cclet* ((sect-src #p(range #p(first #p(sections current))))
-                 (sect-trg #p(range #p(last  #p(sections doc)))))
-          #m(wholestory sect-src)
-          (copy-via-fragment #p(formattedtext sect-src) sect-trg))
-        (cclet* ((sect-trg #p(last #p(sections doc)))
-                 (pri-head #m(item #p(headers sect-trg) +wd-header-footer-primary+))
-                 (pg-nums  #p(pagenumbers pri-head)))
+        (cclet* ((sect-src #~('range #~('first #~('sections current))))
+                 (sect-trg #~('range #~('last  #~('sections doc)))))
+          (#_wholestory sect-src)
+          (copy-via-fragment #~('formattedtext sect-src) sect-trg))
+        (cclet* ((sect-trg #~('last #~('sections doc)))
+                 (pri-head (#_item #~('headers sect-trg) +wd-header-footer-primary+))
+                 (pg-nums  #~('pagenumbers pri-head)))
           ;; Meglévõ elsõdleges fejléc szövegének törlése
-          (setf #p(text #p(range pri-head)) "")
+          (setf #~('text #~('range pri-head)) "")
           ;; Oldalszámozás középre
-          #m(add pg-nums +wd-align-page-number-center+ nil)
+          (#_add pg-nums +wd-align-page-number-center+ nil)
           ;; Oldalszámozás újrakezdése szakaszonként
-          (setf #p(restartnumberingatsection pg-nums) t)
+          (setf #~('restartnumberingatsection pg-nums) t)
           ;; Oldalszámozás kezdése 1-tõl (elsõ oldalt is beleszámítva)
-          (setf #p(startingnumber pg-nums) 1)
+          (setf #~('startingnumber pg-nums) 1)
           ;; Elsõ oldalon eltérõ fejléc/lábléc
-          (setf #p(differentfirstpageheaderfooter #p(pagesetup sect-trg)) t)))
+          (setf #~('differentfirstpageheaderfooter #~('pagesetup sect-trg)) t)))
       ;; Eredmény állapotának mentése
-      #m(save doc)
+      (#_save doc)
       t)))
 
 
@@ -629,7 +628,7 @@
             ;; Új dokumentum létrehozása: dokumentum neve
             (let ((album-name nil))
               (with-xselection (selection ws-query `((,tk-head ,tk) ("SZK" ,ps)))
-                (setf album-name (newfile #p(value2 (used-range selection)))))
+                (setf album-name (newfile #~('value2 (used-range selection)))))
               ;; Ha jelen személyi körhöz nincs definiálva doctype:
               (if (not album-name)
                 (progn
@@ -639,7 +638,7 @@
                     (step-progress-indicator)))
                 ;; Ha van:
                 (with-document (album :app word :close t :save t)
-                  #m(saveas2 album album-name)
+                  (#_saveas2 album album-name)
                   ;; Oldaltörés inicializálása.
                   (setf *page-break-needed* nil)
                   ;; Iteráció SZTSZ-eken:
@@ -647,13 +646,13 @@
                     (dump "SZTSZ: ~a" sztsz)
                     ;; SZTSZ adatainak beírása a dokumentumba.
                     (with-xselection (selection ws-query `(("SZTSZ" ,sztsz)))
-                      (if (add-template album #p(value2 (used-range selection)))
+                      (if (add-template album #~('value2 (used-range selection)))
                         (dump "  ok~%")
                         (dump "  HIBA!~%"))
                       )
                     (step-progress-indicator)
                     (quit-on-abort))))))))
-      #m(quit word))))
+      (#_quit word))))
 
 
 ;;; ----------------------------------------------------------------------

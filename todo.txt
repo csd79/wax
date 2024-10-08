@@ -1,11 +1,5 @@
 A megszakítás beragadt Exceleket eredményez!
-Az lenne a jó, ha app kilépéskor megnézni hogy az interface él-e, egyébként pedig a spare
-megnyitott app interfész pointereket egy globális listába gyűjtené, és befejezéskor egy CLEAN-APP fn-nyel minden megmaradt app példányt bezárna.
-EZ NEM ELÉG. LÉPTETNI KELL A process-T ÉS NÉZNI HOGY HOL JÖNNEK AZ ÚJ PÉLDÁNYOK!
-Nem jöttem még rá, de most eltűnnek az Excelek, ha bezárjuk a fő ablakot. (Talán mert ekkor COM uninitialize történik. Valahol kötve vannak ezek az objektumok, ki kell de) ?!?!
 
-Elvileg a COM csak a process futása alatt van inicializálva. Végső soron támaszkodhatunk erre is, de jó lenne ha az Excelek is bezáródnának, mint a Word-ok.
-Nézzük meg egyes pontokon, az init számláló mennyi.
 
 ----------------------------------------------------------------------------
 
