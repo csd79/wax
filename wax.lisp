@@ -12,19 +12,19 @@
 ;; Excel stuff
 
 
-(defun xcol-values (wsheet column &key (start 2))
+#|(defun xcol-values (wsheet column &key (start 2))
   (let* ((coln   (resolve-column-designator column wsheet))
          (result (xrange wsheet coln start coln (last-row wsheet))))
     (if (and (arrayp result) (not (stringp result)))
       (column->row result)
-      (make-array 1 :initial-element result))))
+      (make-array 1 :initial-element result))))|#
 
 
-(defun xcol-uniques (wsheet column &key (start 2) (test :auto))
+#|(defun xcol-uniques (wsheet column &key (start 2) (test :auto))
   (let ((test-fn  (cond ((eq test :auto) #'equalp)
                         ((typep test 'function) test)
                         (t (error "TEST must be a function or :AUTO.")))))
-    (remove-duplicates (xcol-values wsheet column :start start) :test test-fn)))
+    (remove-duplicates (xcol-values wsheet column :start start) :test test-fn)))|#
 
 
 #|(defmacro xdouniq ((e wsheet column &key (start 2) (test :auto) (select '())) &body body)
@@ -36,7 +36,7 @@
              ,@body))))|#
 
 
-(defmacro xdouniq ((e wsheet column &key (start 2) (test :auto) (select '())) &body body)
+#|(defmacro xdouniq ((e wsheet column &key (start 2) (test :auto) (select '())) &body body)
   (let ((filtered (gensym)))
     `(if ,select
        ;; With selection subscripts provided
@@ -45,22 +45,22 @@
                ,@body))
        ;; Without subscripts
        (loop for ,e across (xcol-uniques ,wsheet ,column :start ,start :test ,test) doing
-             ,@body))))
+             ,@body))))|#
 
 
-(defun xcol-header (xarray title)
+#|(defun xcol-header (xarray title)
   (let ((vec (make-array (array-dimension xarray 1) :displaced-to xarray)))
-    (position title vec :test #'string=)))
+    (position title vec :test #'string=)))|#
 
 
 ;; Column designation: same as with XCELL.
 ;; Row designation: index only. :(
-(defun xaref (xarray x y)
+#|(defun xaref (xarray x y)
   (let* ((xx (typecase x
                (integer x)
                (keyword (1- (letters-column x)))
                (string  (xcol-header xarray x)))))
-    (aref xarray y xx)))
+    (aref xarray y xx)))|#
 
 
 (defun empty-cell-p (value)
@@ -130,8 +130,9 @@
     (concatenate 'string article " " clean)))
 
 
-(defun group->word (number)
-  (let* ((ones     '("egy" "kettõ" "három" "négy" "öt" "hat" "hét" "nyolc" "kilenc"))
+(defun group->word (orig-number)
+  (let* ((number   (round orig-number))
+         (ones     '("egy" "kettõ" "három" "négy" "öt" "hat" "hét" "nyolc" "kilenc"))
          (tens     '("tíz" "húsz" "harminc" "negyven" "ötven" "hatvan" "hetven" "nyolcvan" "kilencven"))
          (tens+    '("tizen" "huszon" "harminc" "negyven" "ötven" "hatvan" "hetven" "nyolcvan" "kilencven"))
          (hundreds '("egyszáz" "kettõszáz" "háromszáz" "négyszáz" "ötszáz" "hatszáz" "hétszáz" "nyolcszáz" "kilencszáz"))
@@ -148,28 +149,29 @@
     (apply #'concatenate 'string result)))
     
 
-(defun sub->words (number)
-  (unless number
-    (error "~a is not a number." number))
-  (when (> number 999999999)
-    (error "The value ~a is larger than 999 999 999."))
-  (if (zerop number)
-    "nulla"
-    (let* ((result '())
-           (a      (truncate number 1000000))
-           (b      (- (truncate number 1000) (* a 1000)))
-           (c      (- number (* a 1000000) (* b 1000))))
-      (unless (zerop c)
-        (push (group->word c) result))
-      (unless (zerop b)
-        (push (concatenate 'string (group->word b) "ezer-") result))
-      (unless (zerop a)
-        (push (concatenate 'string (group->word a) "millió-") result))
-      (let* ((final  (apply #'concatenate 'string result))
-             (length (length final)))
-        (if (char= (elt final (1- (length final))) #\-)
-          (subseq final 0 (- length 1))
-          final)))))
+(defun sub->words (orig-number)
+  (unless orig-number
+    (error "~a is not a number." orig-number))
+  (let ((number (round orig-number)))
+    (when (> number 999999999)
+      (error "The value ~a is larger than 999 999 999."))
+    (if (zerop number)
+      "nulla"
+      (let* ((result '())
+             (a      (truncate number 1000000))
+             (b      (- (truncate number 1000) (* a 1000)))
+             (c      (- number (* a 1000000) (* b 1000))))
+        (unless (zerop c)
+          (push (group->word c) result))
+        (unless (zerop b)
+          (push (concatenate 'string (group->word b) "ezer-") result))
+        (unless (zerop a)
+          (push (concatenate 'string (group->word a) "millió-") result))
+        (let* ((final  (apply #'concatenate 'string result))
+               (length (length final)))
+          (if (char= (elt final (1- (length final))) #\-)
+            (subseq final 0 (- length 1))
+            final))))))
 
 
 (defun currency (number)

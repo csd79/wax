@@ -1,6 +1,5 @@
 A megszakítás beragadt Exceleket eredményez!
 
-
 ----------------------------------------------------------------------------
 
 Dokumentumok összecsúszhatnak. Mindig a következő páratlan oldalon kell kezdődnie az SZTSZ-nek!
@@ -24,25 +23,24 @@ Az XFILTER> is vágólapot használ!!!
 
 ----------------------------------------------------------------------------
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+Prog.bar limit nem jó.
 
 ----------------------------------------------------------------------------
 
-Excel munkalap és tömb közötti oda-vissza most explicit, ez jó.
-A tömböt is lehessen szűrni úgy, hogya szűrés visszaad egy vektort, amit odaadhatunk a tömb-iterálónak.
-Ezzel kiküszöbölhetnénk a folyamatos Excel szűréseket.
+Lassabb lett a xarray-től???????
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -----------------------------------------------------------------------------
 
