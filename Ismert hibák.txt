@@ -1,0 +1,5 @@
+Minden munkamenet két Excel példányt indít a háttérben, amelyek beragadva maradnak, míg ki nem lépünk a programból.
+
+
+A program két futtatás között a "state.txt" fájlban őrzi meg a beviteli mezők tartalmát (dokumentumtípus, mappák stb). Ennek a fájlnak a manuális módosítása hibát eredményez.
+

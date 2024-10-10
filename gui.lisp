@@ -177,6 +177,7 @@
     :description list)
    :best-x '(- (/ :screen-width 2) 200)
    :best-y '(- (/ :screen-height 2) 100)
+   :best-width 550
    :title title))
 
 

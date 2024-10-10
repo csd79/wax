@@ -251,7 +251,7 @@
     
     ("Születési helye, ideje: $………………$^M"
      ,(vals-fn ((a "Születési hely") (b "Születési dátum"))
-        (concatenate 'string (clean-name a) ", " (excel-date-string b :words t))))
+        (concatenate 'string (clean-address a) ", " (excel-date-string b :words t))))
 
     ("Anyja neve: $………………$^M"
      ,(vals-fn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
@@ -311,10 +311,53 @@
         (str:unwords (str:words
          (str:trim a)))))
 
+
+
+
+
+
+
+
+
+
+
+
+
     ("Heti munkaideje: $……$ óra"
      ,(vals-fn ((a "Heti óra"))
         (round a)))
 
+    ("óra $teljes munkaidõ/$részmunkaidõ/csökkentett munkaidõ^MFEOR"
+     ,(vals-fn ((a "Heti óra"))
+        (if (= a 40)
+          "teljes munkaidõ "
+          "")))
+
+    ("$részmunkaidõ/csökkentett munkaidõ$^MFEOR"
+     ,(vals-fn ((a "Heti óra"))
+        (if (= a 40)
+          ""
+          "részmunkaidõ/csökkentett munkaidõ")))
+
+    ("$részmunkaidõ$^MFEOR"
+     ,(vals-fn ((a "Heti óra"))
+        (if (= a 40)
+          ""
+          "részmunkaidõ")))
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
     ("FEOR száma: $………$^M"
      ,(vals-fn ((a "FEOR-sz.s."))
         (str:unwords (str:words
@@ -361,6 +404,7 @@
         (let* ((ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2024-sorrend*))
                (total   0)
                (digest  (mapcar #'(lambda (fee)
+;                                    (push fee *f*)
                                     (destructuring-bind (&key code name sum start end) fee
                                       (declare (ignore name))
                                       (incf total sum)
@@ -377,7 +421,7 @@
                                              (t (list (excel-date-string (or start bd) :words t))))
                                        ;; vége dátum - ha nem hav ill. és a táblázati érték nem 9999.12.31.
                                        (cond ((member code '("1114" "1115") :test #'string=)
-                                              (list (excel-date-string (1114-1115-end hiv))))
+                                              (list (excel-date-string (1114-1115-end hiv) :words t)))
                                              ((and (string/= code "1P00")
                                                    (not (empty-cell-p end)) ;;;;;;;;;;;;;;;;;;;;;
                                                    (/= end 2958465))
@@ -640,20 +684,24 @@
     (with-progress ("Dokumentumok generálása" quit-on-abort dump step-progress-indicator
                     (length (xauniques query "SZTSZ" :test #'astring=)))
       (dump "~%~%")
+;      (dump "EGYEDI TK-K: ~a~%" (xauniques query tk-head));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       ;; Iteráció TK-kon.
       (xadouniques  (tk query tk-head)
         (dump "~%~a~%~a~%~a~%~%" (line 70 #\=) (astring-upcase tk) (line 70 #\=))
         ;; Iteráció személyi körökön.
         (let ((tk-only (xaselect query #'(lambda (row) (astring= (xcref row tk-head) tk)))))
+;          (dump "TK-ONLY: ~a~%" (index tk-only));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;          (dump "EGYEDI PS-EK: ~a~%" (xauniques tk-only "SZK"));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
           (xadouniques (ps tk-only "SZK")
             (dump "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
             ;; Új dokumentum létrehozása: dokumentum neve
             (let* ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps))))
                    (album-name (newfile (xarows tk-ps-only 0))))
+;              (dump "TKPS-ONLY: ~a~%" (index tk-ps-only));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
               ;; Ha jelen személyi körhöz nincs definiálva doctype:
               (if (not album-name)
                 (progn 
-                  (dump "~a személyi kör nincs definiálva.~%" ps)
+                  (dump "~a személyi kör nincs definiálva dokumentumsablon.~%" ps)
                   (xadouniques (sztsz tk-ps-only "SZTSZ")
                     (dump "SZTSZ: ~a   kihagyva~%" sztsz)
                     (step-progress-indicator)))
@@ -663,11 +711,14 @@
                   ;; Oldaltörés inicializálása.
                   (setf *page-break-needed* nil)
                   ;; Iteráció SZTSZ-eken:
+;                  (dump "EGYEDI SZTSZ-EK: ~a~%" (xauniques tk-ps-only "SZTSZ"));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                   (xadouniques (sztsz tk-ps-only "SZTSZ")
                     (dump "SZTSZ: ~a" sztsz)
                     ;; SZTSZ adatainak beírása a dokumentumba.
                     (let ((sztsz-only (xaselect query #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz)))))
-                      (if (add-template album (xarows query (index sztsz-only)))
+;                      (dump "SZTSZ-ONLY: ~a~%" (index sztsz-only));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;                      (if (add-template album (xarows query (index sztsz-only))) ;; EZ NEM JÓ!!!!!!
+                      (if (add-template album sztsz-only)
                         (dump "  ok~%")
                         (dump "  HIBA!~%")))
                     (step-progress-indicator)

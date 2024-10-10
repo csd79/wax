@@ -1,37 +1,8 @@
-A megszakítás beragadt Exceleket eredményez!
-
-----------------------------------------------------------------------------
-
-Dokumentumok összecsúszhatnak. Mindig a következő páratlan oldalon kell kezdődnie az SZTSZ-nek!
-Legyen egy kapcsoló a felületen erre.
-
-----------------------------------------------------------------------------
 
 Felületre kapcsoló: dokumentumok generálása külön vagy egybe?
+Ha egybe: előkészítés 1- vagy 2-oldalas nyomtatáshoz (2-oldalas esetén minde dokuemntum kezdődjön páratlan oldalon!)
 
 ----------------------------------------------------------------------------
-
-Heti munkaideje: …… óra teljes munkaidő/részmunkaidő/csökkentett munkaidő
-Ha 40 óra: teljes munkaidő
-Ha nem 40: többnyire részmunkaidő, de néhány esetben csökkentett.
-Írja be a fentiek szerint, és emelje ki színnel, ha kétséges (rész- v. csökkentett)
-Legyen minden sablonban egységes a szöveg, hogy csak egy csere fn kelljen.
-
-----------------------------------------------------------------------------
-
-Az XFILTER> is vágólapot használ!!!
-
-----------------------------------------------------------------------------
-
-Prog.bar limit nem jó.
-
-----------------------------------------------------------------------------
-
-Lassabb lett a xarray-től???????
-
-
-
-
 
 
 
@@ -49,37 +20,9 @@ Pontosan mi a különbség a value2 és value között?
 
 -----------------------------------------------------------------------------
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-----------------------------------------------------------------------------
-
 A kétoldalú módosításhoz két lekérdezés kell, ez ott lehetne a GUI-n, de csak akkor választható ha 2-oldalút választunk a listából.
 
 -----------------------------------------------------------------------------
-
 
 Keretprogram.
 wax/utils: compile-and-load, hotload...
@@ -111,5 +54,3 @@ Neki 3 db. AJ ösztöndíjja van. Mit hoz a program?   módosítás B2
 Progress window: mindig tegye a kurzort a szöveg aljára.
 
 ----------------------------------------------------------------------------
-
-

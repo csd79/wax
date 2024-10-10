@@ -116,10 +116,14 @@
             0 19)))
 
 
+(defun clean-address (string)
+  (str:unwords (str:words string)))
+
+
 (defun clean-name (string)
   (astring-capitalize
    (str:trim
-    (str:unwords (str:words string)))))
+    (clean-address string))))
 
 
 (defun add-article (word)
