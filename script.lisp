@@ -116,13 +116,6 @@
 ;;; Törzs
 
 
-#|(defun get-fee-row (row cols codes)
-  (let ((width (array-dimension xarray 1)))
-    (apply #'append
-           (mapcar #'(lambda (col code)
-                       (list code (when (< col width)
-                                    (xaref xarray col row))))
-                   cols codes))))|#
 (defun get-fee-row (row cols codes)
   (apply #'append
          (mapcar #'(lambda (col code)
@@ -130,16 +123,6 @@
                  cols codes)))
 
 
-#|(defun get-fees (xarray)
-  (let ((result '())
-        (height  (array-dimension xarray 0))
-        (codes  '(:code :name :sum :start :end)))
-    (loop for row from 1 below height doing
-          (push (get-fee-row xarray row '(15 16 17 35 29) codes) result)
-          (push (get-fee-row xarray row '(19 20 21 34 30) codes) result))
-    (remove-if #'(lambda (elem)
-                   (string= "" (getf elem :code)))
-               (remove-duplicates result :test #'equalp))))|#
 (defun get-fees (xarray)
   (let ((result '())
         (codes  '(:code :name :sum :start :end)))
@@ -173,10 +156,6 @@
     (nreverse result)))
 
 
-
-
-
-
 (defmacro vals-fn (binds &body body)
   (let ((clauses   '())
         ;; Ha megadtunk :FEES-t, a BODY-ból kihagyjuk
@@ -206,7 +185,6 @@
   (when (null *tk-data*)
     (setf *tk-data*
           (with-workbook (:open *xls-tks* :read-only t :wsvars (tks) :close t)
-;            #~('value2 (used-range tks)))))
             (read-xarray (used-range tks)))))
   ;; TK sor keresése
   (xaselect *tk-data*
@@ -251,7 +229,7 @@
     
     ("Születési helye, ideje: $………………$^M"
      ,(vals-fn ((a "Születési hely") (b "Születési dátum"))
-        (concatenate 'string (clean-address a) ", " (excel-date-string b :words t))))
+        (concatenate 'string (clean-city a) ", " (excel-date-string b :words t))))
 
     ("Anyja neve: $………………$^M"
      ,(vals-fn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
@@ -311,23 +289,17 @@
         (str:unwords (str:words
          (str:trim a)))))
 
-
-
-
-
-
-
-
-
-
-
-
-
     ("Heti munkaideje: $……$ óra"
      ,(vals-fn ((a "Heti óra"))
         (round a)))
 
     ("óra $teljes munkaidõ/$részmunkaidõ/csökkentett munkaidõ^MFEOR"
+     ,(vals-fn ((a "Heti óra"))
+        (if (= a 40)
+          "teljes munkaidõ "
+          "")))
+
+    ("óra $teljes munkaidõ/$részmunkaidõ^MFEOR"
      ,(vals-fn ((a "Heti óra"))
         (if (= a 40)
           "teljes munkaidõ "
@@ -345,19 +317,6 @@
           ""
           "részmunkaidõ")))
 
-
-
-
-
-
-
-
-
-
-
-
-
-    
     ("FEOR száma: $………$^M"
      ,(vals-fn ((a "FEOR-sz.s."))
         (str:unwords (str:words
@@ -404,7 +363,6 @@
         (let* ((ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2024-sorrend*))
                (total   0)
                (digest  (mapcar #'(lambda (fee)
-;                                    (push fee *f*)
                                     (destructuring-bind (&key code name sum start end) fee
                                       (declare (ignore name))
                                       (incf total sum)
@@ -586,8 +544,6 @@
         (str:unwords (str:words
          (str:trim a)))))
 
-    
-    
 ))
 
 
@@ -684,20 +640,16 @@
     (with-progress ("Dokumentumok generálása" quit-on-abort dump step-progress-indicator
                     (length (xauniques query "SZTSZ" :test #'astring=)))
       (dump "~%~%")
-;      (dump "EGYEDI TK-K: ~a~%" (xauniques query tk-head));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       ;; Iteráció TK-kon.
       (xadouniques  (tk query tk-head)
         (dump "~%~a~%~a~%~a~%~%" (line 70 #\=) (astring-upcase tk) (line 70 #\=))
         ;; Iteráció személyi körökön.
         (let ((tk-only (xaselect query #'(lambda (row) (astring= (xcref row tk-head) tk)))))
-;          (dump "TK-ONLY: ~a~%" (index tk-only));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;          (dump "EGYEDI PS-EK: ~a~%" (xauniques tk-only "SZK"));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
           (xadouniques (ps tk-only "SZK")
             (dump "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
             ;; Új dokumentum létrehozása: dokumentum neve
             (let* ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps))))
                    (album-name (newfile (xarows tk-ps-only 0))))
-;              (dump "TKPS-ONLY: ~a~%" (index tk-ps-only));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
               ;; Ha jelen személyi körhöz nincs definiálva doctype:
               (if (not album-name)
                 (progn 
@@ -711,13 +663,12 @@
                   ;; Oldaltörés inicializálása.
                   (setf *page-break-needed* nil)
                   ;; Iteráció SZTSZ-eken:
-;                  (dump "EGYEDI SZTSZ-EK: ~a~%" (xauniques tk-ps-only "SZTSZ"));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                   (xadouniques (sztsz tk-ps-only "SZTSZ")
                     (dump "SZTSZ: ~a" sztsz)
                     ;; SZTSZ adatainak beírása a dokumentumba.
-                    (let ((sztsz-only (xaselect query #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz)))))
-;                      (dump "SZTSZ-ONLY: ~a~%" (index sztsz-only));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;                      (if (add-template album (xarows query (index sztsz-only))) ;; EZ NEM JÓ!!!!!!
+;                    (let ((sztsz-only (xaselect query #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz)))))
+                    (let ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz)))))
+;                    (let ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (equalp (xcref row "SZTSZ") sztsz)))))
                       (if (add-template album sztsz-only)
                         (dump "  ok~%")
                         (dump "  HIBA!~%")))

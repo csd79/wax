@@ -8,97 +8,12 @@
 ;; Things that should go into CCOM
 
 
-;; ----------------------------------------------------------------------
-;; Excel stuff
-
-
-#|(defun xcol-values (wsheet column &key (start 2))
-  (let* ((coln   (resolve-column-designator column wsheet))
-         (result (xrange wsheet coln start coln (last-row wsheet))))
-    (if (and (arrayp result) (not (stringp result)))
-      (column->row result)
-      (make-array 1 :initial-element result))))|#
-
-
-#|(defun xcol-uniques (wsheet column &key (start 2) (test :auto))
-  (let ((test-fn  (cond ((eq test :auto) #'equalp)
-                        ((typep test 'function) test)
-                        (t (error "TEST must be a function or :AUTO.")))))
-    (remove-duplicates (xcol-values wsheet column :start start) :test test-fn)))|#
-
-
-#|(defmacro xdouniq ((e wsheet column &key (start 2) (test :auto) (select '())) &body body)
-  (let ((filtered (gensym)))
-    `(cclet* ((,filtered (if ,select
-                           (xselect> ,wsheet ,select)
-                           ,wsheet)))
-       (loop for ,e across (xcol-uniques ,filtered ,column :start ,start :test ,test) doing
-             ,@body))))|#
-
-
-#|(defmacro xdouniq ((e wsheet column &key (start 2) (test :auto) (select '())) &body body)
-  (let ((filtered (gensym)))
-    `(if ,select
-       ;; With selection subscripts provided
-       (with-xselection (,filtered ,wsheet ,select)
-         (loop for ,e across (xcol-uniques ,filtered ,column :start ,start :test ,test) doing
-               ,@body))
-       ;; Without subscripts
-       (loop for ,e across (xcol-uniques ,wsheet ,column :start ,start :test ,test) doing
-             ,@body))))|#
-
-
-#|(defun xcol-header (xarray title)
-  (let ((vec (make-array (array-dimension xarray 1) :displaced-to xarray)))
-    (position title vec :test #'string=)))|#
-
-
-;; Column designation: same as with XCELL.
-;; Row designation: index only. :(
-#|(defun xaref (xarray x y)
-  (let* ((xx (typecase x
-               (integer x)
-               (keyword (1- (letters-column x)))
-               (string  (xcol-header xarray x)))))
-    (aref xarray y xx)))|#
-
-
 (defun empty-cell-p (value)
   (or (and (stringp value)
            (string= value ""))
       (and (symbolp value)
            (member value '(empty :empty)))
       (null value)))
-
-
-;; ----------------------------------------------------------------------
-;; Word stuff
-
-
-#|(defun select-bookmark (document bookmark &key (if-not-found :skip))
-  (multiple-value-bind (value error)
-      (ignore-errors
-        #m(select #m(item #p(bookmarks document) bookmark))
-        #p(selection #p(activewindow document)))
-    (case if-not-found
-      (:skip  value)
-      (:error (if (not error)
-                value
-                (error error)))
-      (t      (error ":IF-NO-FOUND should be either :SKIP or :ERROR.")))))
-
-
-(defun overwrite-bookmark (document bookmark string &key (if-not-found :skip))
-  ;; TYPETEXT will not overwrite selection if the new string is ""...
-  (cclet* ((notnull (if (string= string "")
-                      " "
-                      string))
-           (select  (select-bookmark document bookmark :if-not-found if-not-found)))
-    (when select
-      #m(typetext select notnull)
-      (when (string= string "")
-        #m(typebackspace select)))))|#
-
 
 
 ;; ----------------------------------------------------------------------
@@ -116,14 +31,17 @@
             0 19)))
 
 
-(defun clean-address (string)
-  (str:unwords (str:words string)))
+(defun clean-city (string)
+  (let ((words (str:words string)))
+    (str:unwords
+     (cons (astring-capitalize (first words))
+           (rest words)))))
 
 
 (defun clean-name (string)
   (astring-capitalize
    (str:trim
-    (clean-address string))))
+    (str:unwords (str:words string)))))
 
 
 (defun add-article (word)

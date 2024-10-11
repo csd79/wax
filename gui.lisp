@@ -44,7 +44,6 @@
    :best-y 400
    :window-styles '(:borderless
                     :shadowed
-;                    :hides-on-deactivate
                     :movable-by-window-background)))
 
 
@@ -60,11 +59,12 @@
     (apply #'concatenate 'string (nreverse accum))))
 
 
-(defmacro with-progress ((title abort dumper mover count &optional (buffername "temp")) &body body)
-  (let ((interface (gensym))
-        (i (gensym))
-        (aborted (gensym))
-        (start-time (gensym)))
+(defmacro with-progress ((title abort dumper mover ccount &optional (buffername "temp")) &body body)
+  (let ((interface  (gensym))
+        (i          (gensym))
+        (aborted    (gensym))
+        (start-time (gensym))
+        (count      (gensym)))
     `(progn
        (let* ((,aborted   nil)
               (,interface (make-instance 'progress :title ,title :buffer-name ,buffername
@@ -74,23 +74,24 @@
                                                                (wg-floating-message "Megszakítás ...")
                                                                (setf ,aborted t)))))
               (,i 0)
+              (,count ,ccount)
               (,start-time (get-internal-real-time)))
          (unwind-protect
              (progn
                (capi:modify-editor-pane-buffer (text-dump ,interface) :contents "")
                (capi:display ,interface)
                (block big-body
-                 (flet ((,mover (&optional n)
+                 (flet ((,mover (&optional (n nil))
                           (let* ((percent (if (and n (numberp n) (<= n 100))
                                             n
-                                            (progn
-                                              (incf ,i)
-                                              (round (* 100 (/ ,i ,count))))))
+                                            (* 100 (/ (incf ,i) ,count))))
+;                                              (incf ,i)
+;                                              (round (* 100 (/ ,i ,count))))))
                                  (current-time (get-internal-real-time))
                                  (time-spent   (/ (- current-time ,start-time)
                                                   internal-time-units-per-second))
                                  (time-left    (- (* time-spent (/ 100 percent)) time-spent)))
-                            (setf (capi:range-slug-start (progress ,interface)) percent)
+                            (setf (capi:range-slug-start (progress ,interface)) (round percent))
                             (setf (capi:title-pane-text (rest-time ,interface))
                                   (format nil "Eltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
                                           (timestr (round time-spent))
@@ -128,7 +129,6 @@
    :title label
    :text text
    :buttons `(:browse-file
-;              (:if-does-not-exist :prompt
               (:if-does-not-exist :error
                :filter ,filter
                :filters ,filters)
@@ -144,7 +144,6 @@
    :text text
    :buttons `(:browse-file
               (:directory t
-;               :if-does-not-exist :prompt
                :if-does-not-exist :error
                :use-file-dialog t)
               :ok nil)
