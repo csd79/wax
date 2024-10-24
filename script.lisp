@@ -15,10 +15,14 @@
 (defparameter *doc-template-dir* "")
 (defparameter *out-dir*          "")
 (defparameter *xls-tks*          "")
+(defparameter *grouped*          "")
+
+(defparameter *groupings*        '("Minden dokumentm külön fájlba"
+                                   "Azonos személyi körbe tartozó személyek dokumentumai egy fájlba"))
 
 (defparameter *doctype*          "")
 
-(defparameter *school-year-end*  45900) ; 2025.08.31.
+(defparameter *school-year-end*  45900) ; 2025.08.31. Ha a felületen lenne, átírnák hülyeséggel.
 
 (defparameter *mod-start-def*    "2024. szeptember 1.")
 (defparameter *mod-start*        *mod-start-def*)
@@ -96,7 +100,7 @@
                    template))))
 
 
-(defun newfile (xarray)
+(defun newfile-grouped (xarray)
   (destructuring-bind (&optional subdir szk template)
       (select-doctype xarray)
     (declare (ignore subdir))
@@ -105,7 +109,18 @@
         (format nil "~a~a, ~a, ~a, ~a" *out-dir* tk szk
                 (timestamp (get-universal-time))
                 template)))))
-              
+
+
+(defun newfile-ungrouped (xarray)
+  (destructuring-bind (&optional subdir szk template)
+      (select-doctype xarray)
+    (declare (ignore subdir))
+    (when template
+      (let ((tk (xcref xarray "Vállalat hosszú megnevezése")))
+        (format nil "~a~a, ~a, ~a, ~a, ~a" *out-dir* tk szk (clean-name (xcref xarray "Név"))
+                (timestamp (get-universal-time))
+                template)))))
+
 
 (defun tempfile ()
   (format nil "~a~a_~a~a"
@@ -192,11 +207,11 @@
                 (astring= (xcref row "TK") tk))))
 
 
-(defun 1114-1115-end (hiv)
+#|(defun 1114-1115-end (hiv)
   (if (empty-cell-p hiv)
     *school-year-end*
     (min *school-year-end*
-         hiv)))
+         hiv)))|#
 
 
 (defparameter *t2*
@@ -253,6 +268,7 @@
     ("állományába $………………$ köznevelési"
      ,(vals-fn ((a "Kinevezés/szerzõdés jellege") (b "Szerz.vége") (c "Hely.dolg.neve."))
         (if (string= a "Határozatlan id.kine")
+;        (if (member a '("Határozatlan id.kine" "Hatlan. idejû MT sz.") :test #'string=)
           "határozatlan idejû"
           (format nil "~a tartósan távollévõ helyettesítése céljából határozott ideig, várhatóan ~a napjáig tartó"
                   (if (empty-cell-p c)
@@ -371,19 +387,40 @@
                                        (list (fee-name code cref::*puetv-b1b2b8b9-illetmenyelemek-2024*)
                                              ;; Összeg
                                              (currency sum))
-                                       ;; Megállapítás idõszak kezdete
+                                       ;; Megállapítás idõszak kezdete:
+                                       ;;   Havi ill. vagy mesterfok: nem kell feltüntetni.
                                        (cond ((member code '("1P00" "1116") :test #'string=)
-                                              nil) ; Ha havi ill. vagy mesterfok.: nem kell
+                                              nil)
+                                             ;; Esélyteremtési: balépés dátuma vagy tanévkezdet (amelyik késõbbi)
                                              ((member code '("1114" "1115") :test #'string=)
-                                              (list *mod-start*))
+;                                              (list *mod-start*))
+                                              (list
+                                               (if (> (hudate->unitime (excel-date bd))
+                                                      (hudate->unitime (parse-hudate *mod-start*)))
+                                                 (excel-date-string bd)
+                                                 *mod-start*)))
+                                             ;; Egyébként: ill.érvényesség kezdete, vagy ha nincs, belépés dátuma.
                                              (t (list (excel-date-string (or start bd) :words t))))
-                                       ;; vége dátum - ha nem hav ill. és a táblázati érték nem 9999.12.31.
+                                       ;; Vége dátum:
+                                       ;;   Esélyteremtési:
+                                       ;;     ha határozott idõ vége meg van adva és kisebb mint tanév vége:
+                                       ;;       hat.idõ vége
+                                       ;;     különben:
+                                       ;;       tanév vége
                                        (cond ((member code '("1114" "1115") :test #'string=)
-                                              (list (excel-date-string (1114-1115-end hiv) :words t)))
+                                              (list (excel-date-string
+                                                     (if (empty-cell-p hiv)
+                                                       *school-year-end*
+                                                       (min *school-year-end* hiv))
+                                                     :words t)))
+                                             ;; Egyébként, ha nem havi illetmény, és az ill.érv.vége
+                                             ;;   meg van adva és nem 9999.12.31:
+                                             ;;     ill.érv. vége
                                              ((and (string/= code "1P00")
-                                                   (not (empty-cell-p end)) ;;;;;;;;;;;;;;;;;;;;;
+                                                   (not (empty-cell-p end)) ;;;;;;;HIÁNYOZHAT!!! MIÉÉÉÉÉÉÉÉÉÉÉRT?
                                                    (/= end 2958465))
                                               (list (excel-date-string end :words t)))
+                                             ;; Egyébként: nem kell feltüntetni.
                                              (t nil)))))
                                 ordered))
                (lines  '()))
@@ -457,7 +494,8 @@
 
     ("napjától $………………$ munkaviszony keretében"
      ,(vals-fn ((a "Kinevezés/szerzõdés jellege") (b "Próbaidõ  vége") (c "Hely.dolg.neve."))
-        (if (string= a "Határozatlan id.kine")
+;        (if (string= a "Határozatlan id.kine")
+        (if (member a '("Határozatlan id.kine" "Hatlan. idejû MT sz.") :test #'string=)
           "határozatlan idejû"
           (format nil "~a tartósan távollévõ helyettesítése céljából határozott ideig, várhatóan ~a napjáig tartó"
                   (if (string/= c "")
@@ -576,7 +614,7 @@
               (selection-overwrite range start end text))))))))
 
 
-(defparameter *page-break-needed*         nil)
+;(defparameter *page-break-needed*         nil)
 
 (defun copy-via-fragment (from to)
   (let ((fragment (tempfile)))
@@ -588,18 +626,18 @@
 
 
 ;;; Newer version using fragments.
-(defun add-template (doc xarray)
+(defun add-template (doc xarray first-doc page-break-needed)
   ;; Új temp file dok.sablon alapján
   (cclet* ((temp-name (doctemplate xarray))
            (word      #~('application doc)))
     (when temp-name
-      (with-document (current :app word :open-file temp-name :read-only t :close t)
+      (with-document (:doc current :app word :open temp-name :read-only t :close t)
         ;; Adatok beillesztése táblázatból
         (fill-template current xarray)
         ;; Oldaltörés beillesztése
-        (if *page-break-needed*
-          (#_insertbreak (end-of-doc doc) +wd-section-break-next-page+)
-          (setf *page-break-needed* t))
+        (when (and (not first-doc) page-break-needed)
+          (#_insertbreak (end-of-doc doc) +wd-page-break+)
+          (#_insertbreak (end-of-doc doc) +wd-section-break-odd-page+))
         ;; Jelen SZTSZ dok. másolása
         (cclet* ((sect-src #~('range #~('first #~('sections current))))
                  (sect-trg #~('range #~('last  #~('sections doc)))))
@@ -607,7 +645,8 @@
           (copy-via-fragment #~('formattedtext sect-src) sect-trg))
         (cclet* ((sect-trg #~('last #~('sections doc)))
                  (pri-head (#_item #~('headers sect-trg) +wd-header-footer-primary+))
-                 (pg-nums  #~('pagenumbers pri-head)))
+                 (pg-nums  #~('pagenumbers pri-head))
+                 (pg-setup #~('pagesetup sect-trg)))
           ;; Meglévõ elsõdleges fejléc szövegének törlése
           (setf #~('text #~('range pri-head)) "")
           ;; Oldalszámozás középre
@@ -617,7 +656,11 @@
           ;; Oldalszámozás kezdése 1-tõl (elsõ oldalt is beleszámítva)
           (setf #~('startingnumber pg-nums) 1)
           ;; Elsõ oldalon eltérõ fejléc/lábléc
-          (setf #~('differentfirstpageheaderfooter #~('pagesetup sect-trg)) t)))
+          (setf #~('differentfirstpageheaderfooter pg-setup) t)
+          ;; Tükörmargók
+          (setf #~('mirrormargins pg-setup) t)
+          ;; Eltérõ páros- és páratlan oldalak
+          (setf #~('oddandevenpagesheaderfooter pg-setup) t)))
       ;; Eredmény állapotának mentése
       (#_save doc)
       t)))
@@ -628,52 +671,85 @@
   (format nil "~v@{~A~:*~}" n char))
 
 
+;;; Személyi kör feldolgozása egy fájlba gyûjtött SZTSZ-ekkel.
+(defun process-grouped-ps (tk-ps-only ps dump step-progress-indicator quit-on-abort word)
+  (let ((filename (newfile-grouped (xarows tk-ps-only 0))))
+    ;; Ha jelen személyi körhöz nincs definiálva doctype:
+    (if (not filename)
+      (progn 
+        (funcall dump "~a személyi kör nincs definiálva dokumentumsablon.~%" ps)
+        (xadouniques (sztsz tk-ps-only "SZTSZ")
+          (funcall dump "SZTSZ: ~a   kihagyva~%" sztsz)
+          (funcall step-progress-indicator)))
+      ;; Ha van:
+      (with-document (:doc output :app word :close t :save t)
+        (#_saveas2 output filename)
+        ;; Iteráció SZTSZ-eken:
+        (let ((first-doc t))
+          (xadouniques (sztsz tk-ps-only "SZTSZ")
+            (funcall dump "SZTSZ: ~a" sztsz)
+            ;; SZTSZ adatainak beírása a dokumentumba.
+            (let ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz)))))
+              (if (add-template output sztsz-only first-doc t)
+                (funcall dump "  ok~%")
+                (funcall dump "  HIBA!~%")))
+            (setf first-doc nil)
+            (funcall step-progress-indicator)
+            (funcall quit-on-abort)))))))
+
+
+;;; Személyi kör feldolgozása, minden SZTSZ külön fájlba.
+(defun process-ungrouped-ps (tk-ps-only ps dump step-progress-indicator quit-on-abort word)
+  ;; Iteráció SZTSZ-eken:
+  (xadouniques (sztsz tk-ps-only "SZTSZ")
+    (let* ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz))))
+           (filename   (newfile-ungrouped (xarows sztsz-only 0))))
+      ;; Ha személyi körhöz nincs definiálva doctype:
+      (if (not filename)
+        (progn 
+          (funcall dump "SZTSZ: ~a   kihagyva, a ~a személyi körhöz nincs definiálva dokumentumsablon.~%" sztsz ps)
+          (funcall step-progress-indicator))
+        ;; Ha van:
+        (progn
+          (with-document (:doc output :app word :close t :save t)
+            (#_saveas2 output filename)
+            (funcall dump "SZTSZ: ~a" sztsz)
+            ;; SZTSZ adatainak beírása a dokumentumba.
+            (if (add-template output sztsz-only t nil)
+              (funcall dump "  ok~%")
+              (funcall dump "  HIBA!~%")))
+          (funcall step-progress-indicator)
+          (funcall quit-on-abort))))))
+
+
 ;;; Dokumentumok generálása
 (defun process ()
-  (cclet* ((tk-head "Vállalat hosszú megnevezése")
-           (word    (com:create-object :progid "Word.Application"))
-           (query   nil))
-    ;; Lekérdezés táblázat tartalmának betöltése
-    (with-workbook (:open *xls-query* :read-only t :wsvars (ws-query) :close t)
-      (setf query (read-xarray (used-range ws-query))))
-    ;; Progress bar
-    (with-progress ("Dokumentumok generálása" quit-on-abort dump step-progress-indicator
-                    (length (xauniques query "SZTSZ" :test #'astring=)))
-      (dump "~%~%")
-      ;; Iteráció TK-kon.
-      (xadouniques  (tk query tk-head)
-        (dump "~%~a~%~a~%~a~%~%" (line 70 #\=) (astring-upcase tk) (line 70 #\=))
-        ;; Iteráció személyi körökön.
-        (let ((tk-only (xaselect query #'(lambda (row) (astring= (xcref row tk-head) tk)))))
-          (xadouniques (ps tk-only "SZK")
-            (dump "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
-            ;; Új dokumentum létrehozása: dokumentum neve
-            (let* ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps))))
-                   (album-name (newfile (xarows tk-ps-only 0))))
-              ;; Ha jelen személyi körhöz nincs definiálva doctype:
-              (if (not album-name)
-                (progn 
-                  (dump "~a személyi kör nincs definiálva dokumentumsablon.~%" ps)
-                  (xadouniques (sztsz tk-ps-only "SZTSZ")
-                    (dump "SZTSZ: ~a   kihagyva~%" sztsz)
-                    (step-progress-indicator)))
-                ;; Ha van:
-                (with-document (album :app word :close t :save t)
-                  (#_saveas2 album album-name)
-                  ;; Oldaltörés inicializálása.
-                  (setf *page-break-needed* nil)
-                  ;; Iteráció SZTSZ-eken:
-                  (xadouniques (sztsz tk-ps-only "SZTSZ")
-                    (dump "SZTSZ: ~a" sztsz)
-                    ;; SZTSZ adatainak beírása a dokumentumba.
-;                    (let ((sztsz-only (xaselect query #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz)))))
-                    (let ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz)))))
-;                    (let ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (equalp (xcref row "SZTSZ") sztsz)))))
-                      (if (add-template album sztsz-only)
-                        (dump "  ok~%")
-                        (dump "  HIBA!~%")))
-                    (step-progress-indicator)
-                    (quit-on-abort))))))))
+  (with-wax-errorhandling
+    (cclet* ((tk-head "Vállalat hosszú megnevezése")
+             (word    (com:create-object :progid "Word.Application"))
+             (query   nil))
+      (setf #~('visible word) nil)
+      ;; Lekérdezés táblázat tartalmának betöltése
+      (with-workbook (:open *xls-query* :read-only t :wsvars (ws-query) :close t)
+        (setf query (read-xarray (used-range ws-query))))
+      ;; Progress bar
+      (with-progress ("Dokumentumok generálása" quit-on-abort dump step-progress-indicator
+                      (length (xauniques query "SZTSZ" :test #'astring=)))
+        (dump "~%~%")
+        ;; Iteráció TK-kon.
+        (xadouniques  (tk query tk-head)
+          (dump "~%~a~%~a~%~a~%~%" (line 70 #\=) (astring-upcase tk) (line 70 #\=))
+          ;; Iteráció személyi körökön.
+          (let ((tk-only (xaselect query #'(lambda (row) (astring= (xcref row tk-head) tk)))))
+            (xadouniques (ps tk-only "SZK")
+              (dump "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
+              ;; Személyi kör sorok.
+              (let ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps)))))
+                (cond ((string= *grouped* (first *groupings*))
+                       (process-ungrouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort word))
+                      ((string= *grouped* (second *groupings*))
+                       (process-grouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort word))
+                      (t (error "Invalid grouping!"))))))))
       (#_quit word))))
 
 
@@ -690,14 +766,15 @@
      :query2   ,*xls-query2*
      :tempdir  ,*doc-template-dir*
      :outdir   ,*out-dir*
-     :modstart ,*mod-start*)))
+     :modstart ,*mod-start*
+     :grouped  ,*grouped*)))
 
 
 ;;; Elõzõ munkamenet mentett adatainak visszatöltése a globális változókba.
 (defun load-state ()
   (let ((state (first (load-forms "state.txt"))))
     (when state
-      (destructuring-bind (&key doctype query1 query2 tempdir outdir modstart &allow-other-keys)
+      (destructuring-bind (&key doctype query1 query2 tempdir outdir modstart grouped &allow-other-keys)
           state
         (setf *doctype*          doctype
               *xls-query*        query1
@@ -705,7 +782,8 @@
               *doc-template-dir* tempdir
               *out-dir*          outdir
               *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* tempdir))
-              *mod-start*        modstart)))))
+              *mod-start*        modstart
+              *grouped*          grouped)))))
 
 
 ;;; Vezérlõ globális változók alaphelyzetbe állítása.
@@ -716,7 +794,21 @@
         *doc-template-dir* (appdir)
         *out-dir*          (appdir)
         *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* (appdir)))
-        *mod-start*        *mod-start-def*))
+        *mod-start*        *mod-start-def*
+        *grouped*          (first *groupings*)))
+
+
+;;; Dokumentumsablon-almappák ellenõrzése.
+(defun temp-subdirs-found-p ()
+  (let* ((subdirs (mapcar #'(lambda (rec)
+                              (getf rec :dir))
+                          *doctypes*))
+         (subdirs-found
+          (mapcar #'(lambda (subdir)
+                      (probe-file
+                       (concatenate 'string *doc-template-dir* subdir)))
+                  subdirs)))
+    (not (member nil subdirs-found))))
 
 
 (defparameter *runningp* nil) ; A "Dokumentumok generálása" gomba csak akkor indítja el a folyamatot, ha ez NIL.
@@ -738,7 +830,8 @@
                    (setf *doctype* text))
                (mapcar #'(lambda (rec)
                            (getf rec :name))
-                       *doctypes*))
+                       *doctypes*)
+               *doctype*)
    (wg-text-input "Módosítás érvényesség kezdõdátuma (kinev.módosítás esetén)"
                   #'(lambda (text &rest rest)
                       (declare (ignore rest))
@@ -762,14 +855,24 @@
                         (declare (ignore rest))
                         (setf *out-dir* text))
                     *out-dir*)
+   (wg-options "Dokumentumok csoportosítása"
+               #'(lambda (text &rest rest)
+                   (declare (ignore rest))
+                   (setf *grouped* text))
+               *groupings*
+               *grouped*)
    (wg-button "Dokumentumok generálása"
               #'(lambda (interface)
                   (declare (ignore interface))
-                  (unless *runningp*
-                    (let ((*runningp* t))
-                      (wg-floating-message "Indítás ...")
-                      (save-state)
-                      (process)))))))
+                  ;; Ha dok.sablon almappák megvannak, indítás, egyébként figyelmeztetés.
+                  (if (not (temp-subdirs-found-p))
+                    (wg-msg "A dokumentumsablonok kiválasztott mappája érvénytelen!~%Kérem szíveskedjen azt a mappát kiválasztani, amelyik az \"Egyoldalú kinevezésmódosítások\", \"Kétoldalú kinevezésmódosítások\" és \"Kinevezések\" almappákat tartalmazza.")
+                    (unless *runningp*
+                      ;; Ha még nem fut, indítás.
+                      (let ((*runningp* t))
+                        (wg-floating-message "Indítás ...")
+                        (save-state)
+                        (process))))))))
 
 
 

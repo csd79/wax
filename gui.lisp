@@ -65,7 +65,7 @@
         (aborted    (gensym))
         (start-time (gensym))
         (count      (gensym)))
-    `(progn
+    `(progn(timestamp (get-universal-time))
        (let* ((,aborted   nil)
               (,interface (make-instance 'progress :title ,title :buffer-name ,buffername
                                          :abort-callback #'(lambda (interface)
@@ -85,8 +85,6 @@
                           (let* ((percent (if (and n (numberp n) (<= n 100))
                                             n
                                             (* 100 (/ (incf ,i) ,count))))
-;                                              (incf ,i)
-;                                              (round (* 100 (/ ,i ,count))))))
                                  (current-time (get-internal-real-time))
                                  (time-spent   (/ (- current-time ,start-time)
                                                   internal-time-units-per-second))
@@ -151,13 +149,12 @@
    :change-callback callback))
 
 
-(defun wg-options (label callback items)
+(defun wg-options (label callback items item)
   (make-instance
    'capi:option-pane
    :title label
-     
    :items items
-   :selected-item (first items)
+   :selection (position item items :test #'string=)
    :selection-callback callback))
 
 
@@ -190,3 +187,108 @@
 
 (defun wg-confirm (string &rest rest)
   (funcall #'capi:confirm-yes-or-no string rest))
+
+
+;; ----------------------------------------------------------------------
+;; Error dialog
+
+
+(defparameter *wg-error-details* nil)
+
+
+(defun wg-save-error (&rest interface)
+  (declare (ignore interface))
+  (let ((dir (capi:prompt-for-directory 
+              "Válassza ki a mappát a hibajelzés mentéshez"
+              :use-file-dialog t
+              :pathname (appdir))))
+    (save-forms
+     (make-pathname :defaults dir
+                    :name (concatenate 'string "error-" (timestamp (get-universal-time)))
+                    :type "txt")
+     *wg-error-details*))
+  (setf *wg-error-details* nil))
+
+
+(gp:register-image-translation
+ 'utya-duck
+  (gp:read-external-image (concatenate 'string (appdir) "img\\utya-duck.bmp")
+;                          :transparent-color-index 7
+                          ))
+
+
+(defun display-utya-duck (pane x y width height)
+;  (let ((image (gp:load-image port 'utya-duck)))
+  (let ((image (gp:load-image pane 'utya-duck)))
+    (gp:draw-image pane image 0 0)))
+
+
+(capi:define-interface errordial ()
+  ()
+  (:panes
+   (utya-duck
+    capi:output-pane
+    :display-callback 'display-utya-duck
+    :visible-min-width 176
+    :visible-min-height 200
+    )
+   (error-message
+    capi:display-pane
+    :accessor error-message
+    :text (:initarg message)
+    :visible-border nil
+    :background :gray
+    :visible-max-width 280
+;    :internal-max-width 280
+;    :external-max-width 280
+    :visible-max-height 200
+    )
+   (two-buttons
+    capi:push-button-panel
+    :accessor two-buttons
+    :items (list "Hibajelzés mentése" "Kilépés")
+    :layout-args '(:x-uniform-size-p t)
+    :callback-type :interface
+    :callbacks '(wg-save-error capi:quit-interface)))
+  (:layouts
+   (upper
+    capi:row-layout
+    '(utya-duck
+      error-message
+      )
+    :x-adjust :left
+;    :y-adjust :centre
+    )
+   (lower
+    capi:row-layout
+    '(two-buttons)
+;    :x-adjust :centre
+    )
+   (rows
+    capi:column-layout
+    '(upper
+      lower
+      )
+    :x-adjust :left
+;    :visible-max-width 490
+    ))
+  (:default-initargs
+   :title "Váratlan esemény"
+   :best-x '(- (/ :screen-width 2) 200)
+   :best-y '(- (/ :screen-height 2) 100)
+   :best-width 400
+   :visible-max-width 400
+   :internal-max-width 400
+   :external-max-width 400
+;   :best-height 200
+   :layout 'rows
+;   :resizable nil
+   ))
+
+
+(defun wg-errordial (message details)
+  (setf *wg-error-details* (append (list :message message) details))
+  (capi:contain
+   (make-instance
+    'errordial
+    :message message)))

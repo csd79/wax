@@ -98,3 +98,45 @@
 
 (defun currency (number)
   (format nil "~,,' ,3:d" (round number)))
+
+
+(defun identify-month (string)
+  (when (stringp string)
+    (let* ((mon '(("jan" "january" "januar" "január")
+                  ("feb" "february" "februar" "február")
+                  ("mar" "már" "march" "marcius" "március")
+                  ("apr" "ápr" "april" "aprilis" "április")
+                  ("maj" "máj" "may" "majus" "május")
+                  ("jun" "jún" "june" "junius" "június")
+                  ("jul" "júl" "july" "julius" "július")
+                  ("aug" "august" "augusztus")
+                  ("sep" "szep" "szept" "september" "szeptember")
+                  ("okt" "oct" "october" "oktober" "október")
+                  ("nov" "november")
+                  ("dec" "december")))
+           (pos (position-if
+                 #'(lambda (sublist)
+                     (member string sublist :test #'astring-equal))
+                 mon)))
+      (when pos (1+ pos)))))
+
+
+(defun parse-hudate (string)
+  (destructuring-bind (year month day)
+      (multiple-value-bind (full vector)
+          (cl-ppcre:scan-to-strings
+           "^.*(\\d{2,4})[^a-zA-z\\d:]+(\\d{1,2}|[\\p{L}\\p{M}]+)[^a-zA-z\\d:]+(\\d{1,2}).*$" string)
+        (declare (ignore full))
+        (coerce vector 'list))
+    (let* ((year-raw (parse-integer year))
+           (year-ok  (if (< year-raw 100)
+                       (+ 2000 year-raw)
+                       year))
+           (month-ok (or (parse-integer month :junk-allowed t)
+                         (identify-month month))))
+      (list year-ok month-ok (parse-integer day)))))
+
+
+(defun hudate->unitime (hudatelist)
+  (apply #'encode-universal-time
+         0 0 0 (reverse hudatelist)))

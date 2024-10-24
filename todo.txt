@@ -1,31 +1,28 @@
-
-Felületre válsztó fiók:
-Dokumentum generálása külön fájlokba
-Azonos Személyi körbe eső dokumentumok egy fájlba, kétoldalas nyomtatáshoz.
-
-----------------------------------------------------------------------------
-
-Kapják: 1,2,3: ezek egy dokumentumon belül folyamtosan nőnek
-
-----------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
+Ha generálás közben megnyitunk egy word dokumentumot, a háttér word-ben nyílik meg, és a munkafájlok elkezdenek ugrálni a képernyőn. Margó otthoni gépén nem csinálja ezt, lehet hogy csak az új Office-szal?
+Kérdés hogy Excel is ezt csinálja-e, és hogy mi a megoldás. Sima app visible nil nem elég.
 
 -----------------------------------------------------------------------------
 
-Nagy lekérdezésekkel sokkal lassabb. Miért?
+state.txt beolvasásakor legyen ellenálló, csak akkor írja felül az inicializált változókat, ha az értéknek van értelme, és egyéb olvasási hibákat is kezeljen.
+Ez arra is használható hogy mód. érvényesség dátum és tanév vége elmentve átadható legyen klienseknek. Ha csak ez a két változó van a state-ben.
+(Ugyanígy a "Dok.sablonok" tárolható lenne relatív path-ként, ami első futtatáskor feloldódik és elmentődik abszolútként???
 
 -----------------------------------------------------------------------------
 
-Szervezet címében kivettem a capitalize-t, de most van pl. MOHÁCS. Kell a Capitalize, de a római számokat ismerje fel és kezelje.
+Ill.elem érvényesség kezdete (AJ, xref 35) oszlop hiányzik a kinevezés lekérdezésből??? Miért???
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -----------------------------------------------------------------------------
 
@@ -35,10 +32,6 @@ A *T2* string minták legyenek egy external lisp-fájlban, hogy lehessen őket s
 
 Excel-típusok helyes kezelése? Milyen jó lenne, ha egy kiolvasott tömbben az adatok már olyan típusúak lennének, hogy az rögtön használható legyen!
 Pontosan mi a különbség a value2 és value között?
-
------------------------------------------------------------------------------
-
-A kétoldalú módosításhoz két lekérdezés kell, ez ott lehetne a GUI-n, de csak akkor választható ha 2-oldalút választunk a listából.
 
 -----------------------------------------------------------------------------
 
@@ -72,3 +65,5 @@ Neki 3 db. AJ ösztöndíjja van. Mit hoz a program?   módosítás B2
 Progress window: mindig tegye a kurzort a szöveg aljára.
 
 ----------------------------------------------------------------------------
+
+Szövegbe mentett lisp adat (state) robosztus kezelése mehetne saját modulba!
