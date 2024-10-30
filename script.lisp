@@ -51,27 +51,40 @@
     (:name "Kinevezések"
      :dir  "Kinevezések"
      :szk
-    ((,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
+     ((,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
+      (,(szk-fn "B8") "B8" "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
+      (,(szk-fn "B9") "B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
+      (,(b1-noks-fn)  "B1" "Munkaszerz._noks munkakör_munkavállaló.docx")
+      (,(b1-kiseg-fn) "B1" "Munkaszerz._gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))
+#|    ((,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
       (,(szk-fn "B8") "B8" "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
       (,(szk-fn "B9") "B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
       (,(b1-noks-fn)  "B1" "Munkaszerzõdés_noks munkakör_munkavállaló.docx") 
-      (,(b1-kiseg-fn) "B1" "Munkaszerzõdés_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))
+      (,(b1-kiseg-fn) "B1" "Munkaszerzõdés_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))|#
 
     (:name "Egyoldalú kinevezésmódosítások"
      :dir  "Egyoldalú kinevezésmódosítások"
      :szk
-     ((,(szk-fn "B2") "B2" "Kinevezésmódosítás_egyoldalú_pedagógus.docx")
+     ((,(szk-fn "B2") "B2" "Kinevmód_egyoldalú_pedagógus.docx")
+      (,(szk-fn "B8") "B8" "Kinevmód_egyoldalú_ped. szakkép. noks.docx")
+      (,(szk-fn "B9") "B9" "Kinevmód_egyoldalú_nem ped. szakkép. noks.docx")))
+#|     ((,(szk-fn "B2") "B2" "Kinevezésmódosítás_egyoldalú_pedagógus.docx")
       (,(szk-fn "B8") "B8" "Kinevezésmódosítás_egyoldalú_ped. szakkép. noks.docx")
-      (,(szk-fn "B9") "B9" "Kinevezésmódosítás_egyoldalú_nem ped. szakkép. noks.docx")))
+      (,(szk-fn "B9") "B9" "Kinevezésmódosítás_egyoldalú_nem ped. szakkép. noks.docx")))|#
 
     (:name "Kétoldalú kinevezésmódosítások"
      :dir  "Kétoldalú kinevezésmódosítások"
      :szk
-     ((,(szk-fn "B2") "B2" "Kinevezésmódosítás_kétoldalú_pedagógus.docx")
+     ((,(szk-fn "B2") "B2" "Kinevmód_kétoldalú_pedagógus.docx")
+      (,(szk-fn "B8") "B8" "Kinevmód_kétoldalú_ped. szakkép. noks.docx")
+      (,(szk-fn "B9") "B9" "Kinevmód_kétoldalú_nem ped. szakkép. noks.docx")
+      (,(b1-noks-fn)  "B1" "Munkaszerz.mód_noks munkakör_munkavállaló.docx")
+      (,(b1-kiseg-fn) "B1" "Munkaszerz.mód_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))))
+#|     ((,(szk-fn "B2") "B2" "Kinevezésmódosítás_kétoldalú_pedagógus.docx")
       (,(szk-fn "B8") "B8" "Kinevezésmódosítás_kétoldalú_ped. szakkép. noks.docx")
       (,(szk-fn "B9") "B9" "Kinevezésmódosítás_kétoldalú_nem ped. szakkép. noks.docx")
       (,(b1-noks-fn)  "B1" "Munkaszerzõdés-módosítás_noks munkakör_munkavállaló.docx")
-      (,(b1-kiseg-fn) "B1" "Munkaszerzõdés-módosítás_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))))
+      (,(b1-kiseg-fn) "B1" "Munkaszerzõdés-módosítás_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))))|#
 
 
 ;;; ----------------------------------------------------------------------
@@ -105,8 +118,9 @@
       (select-doctype xarray)
     (declare (ignore subdir))
     (when template
-      (let ((tk (xcref xarray "Vállalat hosszú megnevezése")))
-        (format nil "~a~a, ~a, ~a, ~a" *out-dir* tk szk
+      (let* ((tk (xcref xarray "Vállalat hosszú megnevezése"))
+             (tk-short (format nil "~a TK" (first (str:words tk)))))
+        (format nil "~a~a, ~a, ~a, ~a" *out-dir* tk-short szk
                 (timestamp (get-universal-time))
                 template)))))
 
@@ -116,8 +130,9 @@
       (select-doctype xarray)
     (declare (ignore subdir))
     (when template
-      (let ((tk (xcref xarray "Vállalat hosszú megnevezése")))
-        (format nil "~a~a, ~a, ~a, ~a, ~a" *out-dir* tk szk (clean-name (xcref xarray "Név"))
+      (let* ((tk (xcref xarray "Vállalat hosszú megnevezése"))
+             (tk-short (format nil "~a TK" (first (str:words tk)))))
+        (format nil "~a~a, ~a, ~a, ~a, ~a" *out-dir* tk-short szk (clean-name (xcref xarray "Név"))
                 (timestamp (get-universal-time))
                 template)))))
 
