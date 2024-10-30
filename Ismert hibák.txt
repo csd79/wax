@@ -2,3 +2,6 @@ Minden munkamenet két Excel példányt indít a háttérben, amelyek ott maradn
 
 
 A program két futtatás között a "state.txt" fájlban őrzi meg a beviteli mezők tartalmát (dokumentumtípus, mappák stb). Ennek a fájlnak a manuális módosítása hibát eredményezhet!
+
+
+A generált dokumentumok és hiba esetén a lementett hibajelentések fájlnevében lévő időbélyegző a helyi idő helyett az egyezményes koordinált világidő szerinti időpontot tartalmazza (helyi idő - 2 óra).

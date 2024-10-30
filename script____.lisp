@@ -51,7 +51,7 @@
     (:name "Kinevezések"
      :dir  "Kinevezések"
      :szk
-    ((,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
+     ((,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
       (,(szk-fn "B8") "B8" "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
       (,(szk-fn "B9") "B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
       (,(b1-noks-fn)  "B1" "Munkaszerzõdés_noks munkakör_munkavállaló.docx") 
@@ -216,13 +216,13 @@
 
 (defparameter *t2*
   `(
-    ("$………………$^MTANKERÜLETI^M"
+    ("$………………$^MTANKxxxxxxxERÜLETI^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (astring-upcase (first (str:words (xcref (tk-row a) "TK")))))
      ,#'(lambda (doc)
           (ccom::header doc 1 +wd-header-footer-first-page+)))
 
-    ("Székhelye: $………………$^M"
+#|    ("Székhelye: $………………$^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "Székhely"))
      ,#'(lambda (doc)
@@ -591,7 +591,7 @@
      ,(vals-fn ((a "Bérrendsz. csop név"))
         (str:unwords (str:words
          (str:trim a)))))
-
+|#
 ))
 
 
@@ -636,11 +636,14 @@
 
 
 ;;; Newer version using fragments.
-(defun add-template (word doc xarray first-doc page-break-needed)
+(defun add-template (doc xarray first-doc page-break-needed)
   ;; Új temp file dok.sablon alapján
-  (let ((temp-name (doctemplate xarray)))
+  (cclet* ((temp-name (doctemplate xarray))
+;;;;           (word      #~('application doc))
+           )
     (when temp-name
-      (with-document (:doc current :app word :open temp-name :read-only t :close t)
+;;;;      (with-document (:doc current :app word :open temp-name :read-only t :close t)
+      (with-document (:doc current :open temp-name :read-only t :close t)
         ;; Adatok beillesztése táblázatból
         (fill-template current xarray)
         ;; Oldaltörés beillesztése
@@ -681,7 +684,7 @@
 
 
 ;;; Személyi kör feldolgozása egy fájlba gyûjtött SZTSZ-ekkel.
-(defun process-grouped-ps (tk-ps-only ps dump step-progress-indicator quit-on-abort word)
+(defun process-grouped-ps (tk-ps-only ps dump step-progress-indicator quit-on-abort);;;; word)
   (let ((filename (newfile-grouped (xarows tk-ps-only 0))))
     ;; Ha jelen személyi körhöz nincs definiálva doctype:
     (if (not filename)
@@ -691,7 +694,8 @@
           (funcall dump "SZTSZ: ~a   kihagyva~%" sztsz)
           (funcall step-progress-indicator)))
       ;; Ha van:
-      (with-document (:doc output :app word :close t :save t)
+;;;;      (with-document (:doc output :app word :close t :save t)
+      (with-document (:doc output :close t :save t)
         (#_saveas2 output filename)
         ;; Iteráció SZTSZ-eken:
         (let ((first-doc t))
@@ -699,7 +703,7 @@
             (funcall dump "SZTSZ: ~a" sztsz)
             ;; SZTSZ adatainak beírása a dokumentumba.
             (let ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz)))))
-              (if (add-template word output sztsz-only first-doc t)
+              (if (add-template output sztsz-only first-doc t)
                 (funcall dump "  ok~%")
                 (funcall dump "  HIBA!~%")))
             (setf first-doc nil)
@@ -708,7 +712,7 @@
 
 
 ;;; Személyi kör feldolgozása, minden SZTSZ külön fájlba.
-(defun process-ungrouped-ps (tk-ps-only ps dump step-progress-indicator quit-on-abort word)
+(defun process-ungrouped-ps (tk-ps-only ps dump step-progress-indicator quit-on-abort);;;; word)
   ;; Iteráció SZTSZ-eken:
   (xadouniques (sztsz tk-ps-only "SZTSZ")
     (let* ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz))))
@@ -720,11 +724,12 @@
           (funcall step-progress-indicator))
         ;; Ha van:
         (progn
-          (with-document (:doc output :app word :close t :save t)
+;;;;          (with-document (:doc output :app word :close t :save t)
+          (with-document (:doc output :close t :save t)
             (#_saveas2 output filename)
             (funcall dump "SZTSZ: ~a" sztsz)
             ;; SZTSZ adatainak beírása a dokumentumba.
-            (if (add-template word output sztsz-only t nil)
+            (if (add-template output sztsz-only t nil)
               (funcall dump "  ok~%")
               (funcall dump "  HIBA!~%")))
           (funcall step-progress-indicator)
@@ -735,9 +740,9 @@
 (defun process ()
   (with-wax-errorsink
     (cclet* ((tk-head "Vállalat hosszú megnevezése")
-             (word    (com:create-object :progid "Word.Application"))
+;;;;             (word    (com:create-object :progid "Word.Application"))
              (query   nil))
-      (setf #~('visible word) nil)
+;;;;      (setf #~('visible word) nil)
       ;; Lekérdezés táblázat tartalmának betöltése
       (with-workbook (:open *xls-query* :read-only t :wsvars (ws-query) :close t)
         (setf query (read-xarray (used-range ws-query))))
@@ -755,11 +760,14 @@
               ;; Személyi kör sorok.
               (let ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps)))))
                 (cond ((string= *grouped* (first *groupings*))
-                       (process-ungrouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort word))
+                       (process-ungrouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort));;;; word))
                       ((string= *grouped* (second *groupings*))
-                       (process-grouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort word))
+                       (process-grouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort));;;; word))
                       (t (error "Invalid grouping!"))))))))
-      (#_quit word))))
+;;;;      (#_quit word)
+      )
+    )
+)
 
 
 ;;; ----------------------------------------------------------------------

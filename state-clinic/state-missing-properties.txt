@@ -1,0 +1,1 @@
+(:DOCTYPE "Kinevezések" :QUERY1 "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\___Kinevezések.XLSX" :QUERY2 "" :OUTDIR "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmények\\" :MODSTART "2024. szeptember 1.")

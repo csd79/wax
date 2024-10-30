@@ -9,7 +9,7 @@
 (setf wax::*independent-exe* t)
 
 (lw:deliver 'wax:start
-    "c:\\Users\\cselovszkid\\common-lisp\\wax\\wax_v0.29.exe"
+    "c:\\Users\\cselovszkid\\common-lisp\\wax\\wax_v0.31.exe"
     5
     :interface :capi
     :console :io
@@ -20,4 +20,9 @@
     :keep-lisp-reader t
     :symbol-names-action nil
     :startup-bitmap-file nil ;"c:\\Users\\cselovszkid\\common-lisp\\wax\\img\\blowfice.bmp"
-    :kill-dspec-table nil)
+    :kill-dspec-table nil
+    :keep-conditions :all
+    :keep-debug-mode t
+    :keep-load-function t
+    :compact t
+    )

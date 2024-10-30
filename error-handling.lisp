@@ -45,9 +45,11 @@
 
 ;;; Return the current backtrace as a string.
 (defun backtrace->string ()
-  (let ((out (make-string-output-stream)))
+  (with-output-to-string (out)
+    (dbg:output-backtrace :bug-form :stream out)))
+#|  (let ((out (make-string-output-stream)))
     (dbg:output-backtrace :bug-form :stream out)
-    (get-output-stream-string out)))
+    (get-output-stream-string out)))|#
 
 
 ;; ----------------------------------------------------------------------
@@ -66,22 +68,37 @@
 
 
 ;;; Wrapper macro to add errorhandling to main loop.
-(defmacro with-wax-errorhandling (&body body)
-  `(handler-case
-       (progn
-         ,@body)
-     (com:com-dispatch-invoke-exception-error (e)
-       (dispatch-wg-errordial (com-dispatch-invoke-exception-error-details e)
-                              "~a: ~a: ~a" :source :method-name :description))
-     (com:com-error (e)
-       (dispatch-wg-errordial (com-error-details e)
-                              "Hiba: hresult: ~a; függvény: ~a" :hresult :fn-name))
-     (error (e)
-       (dispatch-wg-errordial (condition-string-or-type e)
-                              "Hiba: ~a" :data))
-     (condition (c)
-       (dispatch-wg-errordial (condition-string-or-type c)
-                              "Váratlan állapot: ~a" :data))))
+(defmacro with-wax-errorsink (&body body)
+  `(if *independent-exe*
+     ;; Errorsink on
+     (catch 'sinked
+       (handler-bind ((com:com-dispatch-invoke-exception-error
+                       #'(lambda (error)
+                           (dispatch-wg-errordial
+                            (com-dispatch-invoke-exception-error-details error)
+                            "~a: ~a: ~a" :source :method-name :description)
+                           (throw 'sinked nil)))
+                      (com:com-error
+                       #'(lambda (error)
+                           (dispatch-wg-errordial
+                            (com-error-details error)
+                            "Hiba: hresult: ~a; függvény: ~a" :hresult :fn-name)
+                           (throw 'sinked nil)))
+                      (error
+                       #'(lambda (error)
+                           (dispatch-wg-errordial
+                            (condition-string-or-type error)
+                            "Hiba: ~a" :data)
+                           (throw 'sinked nil)))
+                      (condition
+                       #'(lambda (condition)
+                           (dispatch-wg-errordial
+                            (condition-string-or-type condition)
+                            "Váratlan állapot: ~a" :data)
+                           (throw 'sinked nil))))
+         ,@body))
+     ;; Conditions passed to LW.
+     (progn ,@body)))
 
 
 ;; ----------------------------------------------------------------------
@@ -89,7 +106,7 @@
 
 
 (defun b ()
-  (with-wax-errorhandling
+  (with-wax-errorsink
     (with-document (:doc doc :open "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\Kinevezések\\Pedagógus_kinevezési okmány_xxx.docx" :read-only t)
       (cclet* ((content #~('content doc))
                (text    #~('text content)))

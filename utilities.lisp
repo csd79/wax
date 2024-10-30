@@ -22,7 +22,7 @@
 
 (defun load-forms (file)
   (let ((results '()))
-    (with-open-file (in (merge-pathnames file (appdir))
+    (with-open-file (in file
                         :direction :input
                         :if-does-not-exist nil)
       (when in
@@ -33,7 +33,7 @@
 
 
 (defun save-forms (file &rest forms)
-  (with-open-file (out (merge-pathnames file (appdir))
+  (with-open-file (out file
                        :direction :output
                        :if-exists :supersede
                        :if-does-not-exist :create)

@@ -196,18 +196,32 @@
 (defparameter *wg-error-details* nil)
 
 
+#|(defun wg-save-error (&rest interface)
+  (declare (ignore interface))
+  (let* ((dir  (capi:prompt-for-directory 
+                "Válassza ki a mappát a hibajelzés mentéshez"
+                :use-file-dialog t
+                :pathname (appdir)))
+         (file (make-pathname :defaults dir
+                              :name (concatenate 'string "error-" (timestamp (get-universal-time)))
+                              :type "txt")))
+    (save-forms file *wg-error-details*)
+    (setf *wg-error-details* nil)
+    (wg-msg "A hibajelzés elmentve:~%~a" file)))|#
 (defun wg-save-error (&rest interface)
   (declare (ignore interface))
-  (let ((dir (capi:prompt-for-directory 
-              "Válassza ki a mappát a hibajelzés mentéshez"
-              :use-file-dialog t
-              :pathname (appdir))))
-    (save-forms
-     (make-pathname :defaults dir
-                    :name (concatenate 'string "error-" (timestamp (get-universal-time)))
-                    :type "txt")
-     *wg-error-details*))
-  (setf *wg-error-details* nil))
+  (let* ((dir  (capi:prompt-for-directory 
+                "Válassza ki a mappát a hibajelzés mentéshez"
+                :use-file-dialog t
+                :pathname (appdir)))
+         (file (when dir
+                 (make-pathname :defaults dir
+                                :name (concatenate 'string "error-" (timestamp (get-universal-time)))
+                                :type "txt"))))
+    (when file
+      (save-forms file *wg-error-details*)
+      (setf *wg-error-details* nil)
+      (wg-msg "A hibajelzés elmentve:~%~a" file))))
 
 
 (gp:register-image-translation
@@ -246,7 +260,7 @@
    (two-buttons
     capi:push-button-panel
     :accessor two-buttons
-    :items (list "Hibajelzés mentése" "Kilépés")
+    :items (list "Hibajelzés mentése" "Bezárás")
     :layout-args '(:x-uniform-size-p t)
     :callback-type :interface
     :callbacks '(wg-save-error capi:quit-interface)))
