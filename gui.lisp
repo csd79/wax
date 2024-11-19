@@ -81,10 +81,10 @@
                (capi:modify-editor-pane-buffer (text-dump ,interface) :contents "")
                (capi:display ,interface)
                (block big-body
-                 (flet ((,mover (&optional (n nil))
-                          (let* ((percent (if (and n (numberp n) (<= n 100))
-                                            n
-                                            (* 100 (/ (incf ,i) ,count))))
+                 (flet ((,mover (&key (abs nil) (step 1))
+                          (let* ((percent (if (and abs (numberp abs) (<= abs 100))
+                                            abs
+                                            (* 100 (/ (incf ,i step) ,count))))
                                  (current-time (get-internal-real-time))
                                  (time-spent   (/ (- current-time ,start-time)
                                                   internal-time-units-per-second))

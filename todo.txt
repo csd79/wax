@@ -6,12 +6,18 @@ Kérdés hogy Excel is ezt csinálja-e, és hogy mi a megoldás. Sima app visibl
 state.txt beolvasásakor legyen ellenálló, csak akkor írja felül az inicializált változókat, ha az értéknek van értelme, és egyéb olvasási hibákat is kezeljen.
 Ez arra is használható hogy mód. érvényesség dátum és tanév vége elmentve átadható legyen klienseknek. Ha csak ez a két változó van a state-ben.
 (Ugyanígy a "Dok.sablonok" tárolható lenne relatív path-ként, ami első futtatáskor feloldódik és elmentődik abszolútként???
+VAGY: egyszerűen csak hibás olvasás esetén törölje a fájlt és kezdjen tiszta lappal.
 
 -----------------------------------------------------------------------------
 
 Ill.elem érvényesség kezdete (AJ, xref 35) oszlop hiányzik a kinevezés lekérdezésből??? Miért???
 
+-----------------------------------------------------------------------------
 
+Érdemes lenne a munkafájlokat (dok.sablont megnyitás előtt, átmeneti és összerakott dokumentumot mentésig) egy %home%temp mappűban tárolni, és a végén onnan átmozgatni az eredménymappába.
+Ha minden igaz, ez elkerülhetővé tenné a 255 karakternél hosszabb path-ból adódó hibákat.
+
+-----------------------------------------------------------------------------
 
 
 

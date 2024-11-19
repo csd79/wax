@@ -253,15 +253,15 @@
      ,(vals-fn ((a "Név"))
         (clean-name a)))
     
-    ("Születési neve: $………………$^M"
+    (,(format nil "Születési neve:~C$………………$^M" #\tab)
      ,(vals-fn ((a "Születési vezetéknév") (b "Születési utónév") (c "2.születési utónév"))
         (clean-name (str:unwords (list a b c)))))
     
-    ("Születési helye, ideje: $………………$^M"
+    (,(format nil "Születési helye, ideje:~C$………………$^M" #\tab)
      ,(vals-fn ((a "Születési hely") (b "Születési dátum"))
         (concatenate 'string (clean-city a) ", " (excel-date-string b :words t))))
 
-    ("Anyja neve: $………………$^M"
+    (,(format nil "Anyja neve:~C$………………$^M" #\tab)
      ,(vals-fn ((a "Anya") (b "Anyja keresztneve") (c "Anyja 2.keresztneve"))
         (clean-name (str:unwords (list a b c)))))
 
@@ -310,19 +310,24 @@
               "A …-jogszabály-… alapján próbaidõ nem köthetõ ki."
               bx-prob)))))
 
-    ("unkaköre: $………………$^M"
+    (,(format nil "unkaköre:~C$………………$^M" #\tab)
      ,(vals-fn ((a "Munkakör"))
         (str:unwords (str:words
          (str:trim a)))))
 
-    ("Munkavégzésének helye: $……………………………………………………$, cím"
+    (,(format nil "Munkavégzésének helye:~C$……………………………………………………$, cím" #\tab)
      ,(vals-fn ((a "szervezeti egys hosszú megnev."))
         (str:unwords (str:words
          (str:trim a)))))
 
-    ("Heti munkaideje: $……$ óra"
+#|    ("Heti munkaideje: $……$ óra"
      ,(vals-fn ((a "Heti óra"))
-        (round a)))
+        (round a)))|#
+    (,(format nil "Heti munkaideje:~C$……$ óra" #\tab)
+     ,(vals-fn ((a "Heti óra"))
+        (if (= a (round a))
+          (format nil "~d" (round a))
+          (str:replace-first "." "," (format nil "~,2f" a)))))
 
     ("óra $teljes munkaidõ/$részmunkaidõ/csökkentett munkaidõ^MFEOR"
      ,(vals-fn ((a "Heti óra"))
@@ -348,7 +353,7 @@
           ""
           "részmunkaidõ")))
 
-    ("FEOR száma: $………$^M"
+    (,(format nil "FEOR száma:~C$………$^M" #\tab)
      ,(vals-fn ((a "FEOR-sz.s."))
         (str:unwords (str:words
          (str:trim a)))))
@@ -408,7 +413,6 @@
                                               nil)
                                              ;; Esélyteremtési: balépés dátuma vagy tanévkezdet (amelyik késõbbi)
                                              ((member code '("1114" "1115") :test #'string=)
-;                                              (list *mod-start*))
                                               (list
                                                (if (> (hudate->unitime (excel-date bd))
                                                       (hudate->unitime (parse-hudate *mod-start*)))
@@ -462,7 +466,7 @@
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "TK ig")))
         
-    ("$………………$^Mtitulus^M"
+    ("$………………$^Mgazdasági vezetõ^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "Gazdasági vez.")))
     
@@ -530,7 +534,7 @@
          ;; Nem meghatározható eset
          (t "napjától $………………$ munkaviszony keretében"))))
     
-    ("^MMunkavégzés helye: $……………………………………………………$, cím^M"
+    (,(format nil "^MMunkavégzés helye:~C$……………………………………………………$, cím^M" #\tab)
      ,(vals-fn ((a "szervezeti egys hosszú megnev."))
         (str:unwords (str:words
          (str:trim a)))))
@@ -557,7 +561,7 @@
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "Tk ig")))
 
-    (,(format nil "$………………$^M~Ctitulus^M" #\tab)
+    (,(format nil "$………………$^M~Cgazdasági vezetõ^M" #\tab)
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "Gazdasági vez.")))
     
@@ -856,7 +860,7 @@
                            (getf rec :name))
                        *doctypes*)
                *doctype*)
-   (wg-text-input "Módosítás érvényesség kezdõdátuma (kinev.módosítás esetén)"
+   (wg-text-input "Tanév kezdõdátum vagy módosítás érvényesség kezdõdátuma"
                   #'(lambda (text &rest rest)
                       (declare (ignore rest))
                       (setf *mod-start* text))
