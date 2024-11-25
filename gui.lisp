@@ -196,18 +196,6 @@
 (defparameter *wg-error-details* nil)
 
 
-#|(defun wg-save-error (&rest interface)
-  (declare (ignore interface))
-  (let* ((dir  (capi:prompt-for-directory 
-                "Válassza ki a mappát a hibajelzés mentéshez"
-                :use-file-dialog t
-                :pathname (appdir)))
-         (file (make-pathname :defaults dir
-                              :name (concatenate 'string "error-" (timestamp (get-universal-time)))
-                              :type "txt")))
-    (save-forms file *wg-error-details*)
-    (setf *wg-error-details* nil)
-    (wg-msg "A hibajelzés elmentve:~%~a" file)))|#
 (defun wg-save-error (&rest interface)
   (declare (ignore interface))
   (let* ((dir  (capi:prompt-for-directory 
@@ -226,13 +214,10 @@
 
 (gp:register-image-translation
  'utya-duck
-  (gp:read-external-image (concatenate 'string (appdir) "img\\utya-duck.bmp")
-;                          :transparent-color-index 7
-                          ))
+  (gp:read-external-image (concatenate 'string (appdir) "img\\utya-duck.bmp")))
 
 
 (defun display-utya-duck (pane x y width height)
-;  (let ((image (gp:load-image port 'utya-duck)))
   (let ((image (gp:load-image pane 'utya-duck)))
     (gp:draw-image pane image 0 0)))
 

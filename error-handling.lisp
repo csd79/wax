@@ -47,9 +47,6 @@
 (defun backtrace->string ()
   (with-output-to-string (out)
     (dbg:output-backtrace :bug-form :stream out)))
-#|  (let ((out (make-string-output-stream)))
-    (dbg:output-backtrace :bug-form :stream out)
-    (get-output-stream-string out)))|#
 
 
 ;; ----------------------------------------------------------------------
@@ -108,7 +105,7 @@
 (defun b ()
   (with-wax-errorsink
     (with-document (:doc doc :open "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\Kinevezések\\Pedagógus_kinevezési okmány_xxx.docx" :read-only t)
-      (cclet* ((content #~('content doc))
-               (text    #~('text content)))
+      (cclet* ((content (?content doc))
+               (text    (?text content)))
         (format t "~a~%~%" text)))))
 

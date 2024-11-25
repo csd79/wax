@@ -56,11 +56,6 @@
       (,(szk-fn "B9") "B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
       (,(b1-noks-fn)  "B1" "Munkaszerz._noks munkakör_munkavállaló.docx")
       (,(b1-kiseg-fn) "B1" "Munkaszerz._gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))
-#|    ((,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
-      (,(szk-fn "B8") "B8" "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
-      (,(szk-fn "B9") "B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
-      (,(b1-noks-fn)  "B1" "Munkaszerzõdés_noks munkakör_munkavállaló.docx") 
-      (,(b1-kiseg-fn) "B1" "Munkaszerzõdés_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))|#
 
     (:name "Egyoldalú kinevezésmódosítások"
      :dir  "Egyoldalú kinevezésmódosítások"
@@ -68,9 +63,6 @@
      ((,(szk-fn "B2") "B2" "Kinevmód_egyoldalú_pedagógus.docx")
       (,(szk-fn "B8") "B8" "Kinevmód_egyoldalú_ped. szakkép. noks.docx")
       (,(szk-fn "B9") "B9" "Kinevmód_egyoldalú_nem ped. szakkép. noks.docx")))
-#|     ((,(szk-fn "B2") "B2" "Kinevezésmódosítás_egyoldalú_pedagógus.docx")
-      (,(szk-fn "B8") "B8" "Kinevezésmódosítás_egyoldalú_ped. szakkép. noks.docx")
-      (,(szk-fn "B9") "B9" "Kinevezésmódosítás_egyoldalú_nem ped. szakkép. noks.docx")))|#
 
     (:name "Kétoldalú kinevezésmódosítások"
      :dir  "Kétoldalú kinevezésmódosítások"
@@ -80,11 +72,6 @@
       (,(szk-fn "B9") "B9" "Kinevmód_kétoldalú_nem ped. szakkép. noks.docx")
       (,(b1-noks-fn)  "B1" "Munkaszerz.mód_noks munkakör_munkavállaló.docx")
       (,(b1-kiseg-fn) "B1" "Munkaszerz.mód_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))))
-#|     ((,(szk-fn "B2") "B2" "Kinevezésmódosítás_kétoldalú_pedagógus.docx")
-      (,(szk-fn "B8") "B8" "Kinevezésmódosítás_kétoldalú_ped. szakkép. noks.docx")
-      (,(szk-fn "B9") "B9" "Kinevezésmódosítás_kétoldalú_nem ped. szakkép. noks.docx")
-      (,(b1-noks-fn)  "B1" "Munkaszerzõdés-módosítás_noks munkakör_munkavállaló.docx")
-      (,(b1-kiseg-fn) "B1" "Munkaszerzõdés-módosítás_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))))|#
 
 
 ;;; ----------------------------------------------------------------------
@@ -169,9 +156,15 @@
                (string= code (getf record :code))) fees))
 
 
-(defun fee-name (code refs)
+(defun fee-name (code eila refs)
   (let ((found (find-if #'(lambda (ref)
-                            (member code (getf (getf ref :meta) :code) :test #'string=))
+                            (let* ((meta  (getf ref :meta))
+                                   (mcode (getf meta :code))
+                                   (meila (getf meta :eila)))
+                              (and (member code mcode :test #'string=)
+                                   (if meila
+                                     (member eila meila :test #'string=)
+                                     t))))
                         refs)))
     (when found
       (getf found :name))))
@@ -220,13 +213,6 @@
   (xaselect *tk-data*
             #'(lambda (row)
                 (astring= (xcref row "TK") tk))))
-
-
-#|(defun 1114-1115-end (hiv)
-  (if (empty-cell-p hiv)
-    *school-year-end*
-    (min *school-year-end*
-         hiv)))|#
 
 
 (defparameter *t2*
@@ -283,7 +269,6 @@
     ("állományába $………………$ köznevelési"
      ,(vals-fn ((a "Kinevezés/szerzõdés jellege") (b "Szerz.vége") (c "Hely.dolg.neve."))
         (if (string= a "Határozatlan id.kine")
-;        (if (member a '("Határozatlan id.kine" "Hatlan. idejû MT sz.") :test #'string=)
           "határozatlan idejû"
           (format nil "~a tartósan távollévõ helyettesítése céljából határozott ideig, várhatóan ~a napjáig tartó"
                   (if (empty-cell-p c)
@@ -315,14 +300,11 @@
         (str:unwords (str:words
          (str:trim a)))))
 
-    (,(format nil "Munkavégzésének helye:~C$……………………………………………………$, cím" #\tab)
+    (,(format nil "Munkavégzésének helye:~C$……………………………………………………$" #\tab)
      ,(vals-fn ((a "szervezeti egys hosszú megnev."))
         (str:unwords (str:words
          (str:trim a)))))
 
-#|    ("Heti munkaideje: $……$ óra"
-     ,(vals-fn ((a "Heti óra"))
-        (round a)))|#
     (,(format nil "Heti munkaideje:~C$……$ óra" #\tab)
      ,(vals-fn ((a "Heti óra"))
         (if (= a (round a))
@@ -373,14 +355,17 @@
             (concatenate 'string "^MA  pedagógusok új életpályájáról szóló 2023. évi LII. törvény végrehajtásáról szóló 401/2023. (VIII. 30.) Korm. rendelet (a továbbiakban: Púétv. vhr.) 37. § (1)-(13) bekezdése alapján az Ön gyakornoki ideje " bd-str " napjától ………………  napjáig tart, minõsítõ vizsgát " vh-str " napjáig köteles tenni. Amennyiben a minõsítõ vizsgája sikeres, a Púétv. vhr. 37. § (8) bekezdése alapján Önt Pedagógus I. fokozatba kell besorolni.^M^M")
             ""))))
 
-    ("módosítom.^M^MHavi illetményét $………………$ napi hatállyal"
+    ("módosítom.^M^MHavi illetményét $………………$ napi hatállyal" ; Egyoldalú
      ,(vals-fn ()
         (declare (ignore xarray))
         *mod-start*))
 
-    ("Havi illetményét $………………$ napi hatállyal"
-     ,(vals-fn ((a "Belépés dátuma"))
-        (excel-date-string a :words t)))
+    ("Havi illetményét $………………$ napi hatállyal" ; Kétoldalú
+#|     ,(vals-fn ((a "Belépés dátuma"))
+        (excel-date-string a :words t)))|#
+     ,(vals-fn ()
+        (declare (ignore xarray))
+        *mod-start*))
 
     ("hatállyal $………………$ alapján az alábbiak szerint állapítom meg.^M"
      ,(vals-fn ((szk "SZK") (bes "Bérrendsz. csop név") (eila "Esélyteremtési illetményrészre")) :fees fees
@@ -395,7 +380,7 @@
             text))))
 
     (,(format nil "$Havi illetmény:~C………………~CFt^MIlletmény összesen:~C………………~cFt$^M" #\tab #\tab #\tab #\tab)
-     ,(vals-fn ((bd "Belépés dátuma") (hiv "Szerz.vége")) :fees fees
+     ,(vals-fn ((bd "Belépés dátuma") (hiv "Szerz.vége") (eila "Esélyteremtési illetményrészre")) :fees fees
         (let* ((ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2024-sorrend*))
                (total   0)
                (digest  (mapcar #'(lambda (fee)
@@ -404,7 +389,7 @@
                                       (incf total sum)
                                       (append
                                        ;; Ill.e. megnevezés
-                                       (list (fee-name code cref::*puetv-b1b2b8b9-illetmenyelemek-2024*)
+                                       (list (fee-name code eila cref::*puetv-b1b2b8b9-illetmenyelemek-2024*)
                                              ;; Összeg
                                              (currency sum))
                                        ;; Megállapítás idõszak kezdete:
@@ -416,7 +401,7 @@
                                               (list
                                                (if (> (hudate->unitime (excel-date bd))
                                                       (hudate->unitime (parse-hudate *mod-start*)))
-                                                 (excel-date-string bd)
+                                                 (excel-date-string bd :words t)
                                                  *mod-start*)))
                                              ;; Egyébként: ill.érvényesség kezdete, vagy ha nincs, belépés dátuma.
                                              (t (list (excel-date-string (or start bd) :words t))))
@@ -454,11 +439,11 @@
           (apply #'concatenate 'string
                  (nreverse lines)))))
 
-    ("illetékes törvényszékhez. ^M^M$………………$,"
+    ("illetékes törvényszékhez.^M^M$………………$,"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "Helységnév")))
 
-    ("Pénzügyileg ellenjegyzem. ^M^M$………………$, "
+    ("Pénzügyileg ellenjegyzem.^M^M$………………$,"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "Helységnév")))
         
@@ -512,7 +497,7 @@
         (excel-date-string a :words t)))
 
     ("napjától $………………$ munkaviszony keretében"
-     ,(vals-fn ((a "Kinevezés/szerzõdés jellege"); (b "Próbaidõ  vége")
+     ,(vals-fn ((a "Kinevezés/szerzõdés jellege")
                 (c "Hely.dolg.neve.") (d "Szerz.vége"))
         (cond
          ;; Határozatlan idejû kinevezés/szerzõdés
@@ -534,7 +519,7 @@
          ;; Nem meghatározható eset
          (t "napjától $………………$ munkaviszony keretében"))))
     
-    (,(format nil "^MMunkavégzés helye:~C$……………………………………………………$, cím^M" #\tab)
+    (,(format nil "^MMunkavégzés helye:~C$……………………………………………………$" #\tab)
      ,(vals-fn ((a "szervezeti egys hosszú megnev."))
         (str:unwords (str:words
          (str:trim a)))))
@@ -610,7 +595,6 @@
      ,(vals-fn ((a "Bérrendsz. csop név"))
         (str:unwords (str:words
          (str:trim a)))))
-
 ))
 
 
@@ -634,7 +618,7 @@
           (temp-target temp)
         (cclet* ((range  (if range-fn
                            (funcall range-fn current)
-                           #~('content current)))
+                           (?content current)))
                  (found  (range-find-text range clean)))
           (when found
             (cclet* ((start (+ found start-offset))
@@ -643,14 +627,12 @@
               (selection-overwrite range start end text))))))))
 
 
-;(defparameter *page-break-needed*         nil)
-
 (defun copy-via-fragment (from to)
   (let ((fragment (tempfile)))
-    (#_exportfragment #~('formattedtext from)
+    (!exportfragment (?formattedtext from)
                       fragment
                       +wd-format-document-default+)
-    (#_importfragment to fragment)
+    (!importfragment to fragment)
     (delete-file fragment)))
 
 
@@ -659,38 +641,38 @@
   ;; Új temp file dok.sablon alapján
   (let ((temp-name (doctemplate xarray)))
     (when temp-name
-      (with-document (:doc current :app word :open temp-name :read-only t :close t)
+      (with-document (:doc current :app word :open temp-name :read-only nil :close t :save nil) ; Mohács?
         ;; Adatok beillesztése táblázatból
         (fill-template current xarray)
         ;; Oldaltörés beillesztése
         (when (and (not first-doc) page-break-needed)
-          (#_insertbreak (end-of-doc doc) +wd-page-break+)
-          (#_insertbreak (end-of-doc doc) +wd-section-break-odd-page+))
+          (!insertbreak (end-of-doc doc) +wd-page-break+)
+          (!insertbreak (end-of-doc doc) +wd-section-break-odd-page+))
         ;; Jelen SZTSZ dok. másolása
-        (cclet* ((sect-src #~('range #~('first #~('sections current))))
-                 (sect-trg #~('range #~('last  #~('sections doc)))))
-          (#_wholestory sect-src)
-          (copy-via-fragment #~('formattedtext sect-src) sect-trg))
-        (cclet* ((sect-trg #~('last #~('sections doc)))
-                 (pri-head (#_item #~('headers sect-trg) +wd-header-footer-primary+))
-                 (pg-nums  #~('pagenumbers pri-head))
-                 (pg-setup #~('pagesetup sect-trg)))
+        (cclet* ((sect-src (?range (?first (?sections current))))
+                 (sect-trg (?range (?last  (?sections doc)))))
+          (!wholestory sect-src)
+          (copy-via-fragment (?formattedtext sect-src) sect-trg))
+        (cclet* ((sect-trg (?last (?sections doc)))
+                 (pri-head (!item (?headers sect-trg) +wd-header-footer-primary+))
+                 (pg-nums  (?pagenumbers pri-head))
+                 (pg-setup (?pagesetup sect-trg)))
           ;; Meglévõ elsõdleges fejléc szövegének törlése
-          (setf #~('text #~('range pri-head)) "")
+          (setf (?text (?range pri-head)) "")
           ;; Oldalszámozás középre
-          (#_add pg-nums +wd-align-page-number-center+ nil)
+          (!add pg-nums +wd-align-page-number-center+ nil)
           ;; Oldalszámozás újrakezdése szakaszonként
-          (setf #~('restartnumberingatsection pg-nums) t)
+          (setf (?restartnumberingatsection pg-nums) t)
           ;; Oldalszámozás kezdése 1-tõl (elsõ oldalt is beleszámítva)
-          (setf #~('startingnumber pg-nums) 1)
+          (setf (?startingnumber pg-nums) 1)
           ;; Elsõ oldalon eltérõ fejléc/lábléc
-          (setf #~('differentfirstpageheaderfooter pg-setup) t)
+          (setf (?differentfirstpageheaderfooter pg-setup) t)
           ;; Tükörmargók
-          (setf #~('mirrormargins pg-setup) t)
+          (setf (?mirrormargins pg-setup) t)
           ;; Eltérõ páros- és páratlan oldalak
-          (setf #~('oddandevenpagesheaderfooter pg-setup) t)))
+          (setf (?oddandevenpagesheaderfooter pg-setup) t)))
       ;; Eredmény állapotának mentése
-      (#_save doc)
+      (!save doc)
       t)))
 
 
@@ -711,7 +693,7 @@
           (funcall step-progress-indicator)))
       ;; Ha van:
       (with-document (:doc output :app word :close t :save t)
-        (#_saveas2 output filename)
+        (!saveas2 output filename)
         ;; Iteráció SZTSZ-eken:
         (let ((first-doc t))
           (xadouniques (sztsz tk-ps-only "SZTSZ")
@@ -740,7 +722,7 @@
         ;; Ha van:
         (progn
           (with-document (:doc output :app word :close t :save t)
-            (#_saveas2 output filename)
+            (!saveas2 output filename)
             (funcall dump "SZTSZ: ~a" sztsz)
             ;; SZTSZ adatainak beírása a dokumentumba.
             (if (add-template word output sztsz-only t nil)
@@ -753,32 +735,33 @@
 ;;; Dokumentumok generálása
 (defun process ()
   (with-wax-errorsink
-    (cclet* ((tk-head "Vállalat hosszú megnevezése")
-             (word    (com:create-object :progid "Word.Application"))
-             (query   nil))
-      (setf #~('visible word) nil)
-      ;; Lekérdezés táblázat tartalmának betöltése
-      (with-workbook (:open *xls-query* :read-only t :wsvars (ws-query) :close t)
-        (setf query (read-xarray (used-range ws-query))))
-      ;; Progress bar
-      (with-progress ("Dokumentumok generálása" quit-on-abort dump step-progress-indicator
-                      (length (xauniques query "SZTSZ" :test #'astring=)))
-        (dump "~%~%")
-        ;; Iteráció TK-kon.
-        (xadouniques  (tk query tk-head)
-          (dump "~%~a~%~a~%~a~%~%" (line 70 #\=) (astring-upcase tk) (line 70 #\=))
-          ;; Iteráció személyi körökön.
-          (let ((tk-only (xaselect query #'(lambda (row) (astring= (xcref row tk-head) tk)))))
-            (xadouniques (ps tk-only "SZK")
-              (dump "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
-              ;; Személyi kör sorok.
-              (let ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps)))))
-                (cond ((string= *grouped* (first *groupings*))
-                       (process-ungrouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort word))
-                      ((string= *grouped* (second *groupings*))
-                       (process-grouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort word))
-                      (t (error "Invalid grouping!"))))))))
-      (#_quit word))))
+   (with-property-accessors
+     (cclet* ((tk-head "Vállalat hosszú megnevezése")
+              (word    (com:create-object :progid "Word.Application"))
+              (query   nil))
+       (setf (?visible word) nil)
+       ;; Lekérdezés táblázat tartalmának betöltése
+       (with-workbook (:open *xls-query* :read-only t :wsvars (ws-query) :close t)
+         (setf query (read-xarray (used-range ws-query))))
+       ;; Progress bar
+       (with-progress ("Dokumentumok generálása" quit-on-abort dump step-progress-indicator
+                       (length (xauniques query "SZTSZ" :test #'astring=)))
+         (dump "~%~%")
+         ;; Iteráció TK-kon.
+         (xadouniques  (tk query tk-head)
+           (dump "~%~a~%~a~%~a~%~%" (line 70 #\=) (astring-upcase tk) (line 70 #\=))
+           ;; Iteráció személyi körökön.
+           (let ((tk-only (xaselect query #'(lambda (row) (astring= (xcref row tk-head) tk)))))
+             (xadouniques (ps tk-only "SZK")
+               (dump "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
+               ;; Személyi kör sorok.
+               (let ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps)))))
+                 (cond ((string= *grouped* (first *groupings*))
+                        (process-ungrouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort word))
+                       ((string= *grouped* (second *groupings*))
+                        (process-grouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort word))
+                       (t (error "Invalid grouping!"))))))))
+       (!quit word)))))
 
 
 ;;; ----------------------------------------------------------------------
@@ -915,4 +898,4 @@
       ((in  "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\Kétoldalú kinevezésmódosítások\\Munkaszerzõdés-módosítás_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")
        (out "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmények\\teszt.docx"))
   (with-document (:doc output :open in :close t :save t)
-    (#_saveas2 output out))))
+    (!saveas2 output out))))
