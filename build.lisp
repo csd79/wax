@@ -7,7 +7,7 @@
 (in-package "WAX")
 (setf *independent-exe* t)
 (lw:deliver 'start
-    "c:\\Users\\cselovszkid\\common-lisp\\wax\\wax_v0.34.exe"
+    "c:\\Users\\cselovszkid\\common-lisp\\wax\\wax_v0.35.exe"
     5
     :interface :capi
     :console :io

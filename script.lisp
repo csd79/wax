@@ -17,6 +17,9 @@
 (defparameter *xls-tks*          "")
 (defparameter *grouped*          "")
 
+(defparameter *file-no-default*  "TK/194/HR/KOZINT/-/2024")
+(defparameter *file-number-temp* *file-no-default*)
+
 (defparameter *groupings*        '("Minden dokumentm külön fájlba"
                                    "Azonos személyi körbe tartozó személyek dokumentumai egy fájlba"))
 
@@ -217,6 +220,11 @@
 
 (defparameter *t2*
   `(
+    ("Iktatószám: $………………$^M"
+     ,(vals-fn ()
+        (declare (ignore xarray))
+        *file-number-temp*))
+
     ("$………………$^MTANKERÜLETI^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (astring-upcase (first (str:words (xcref (tk-row a) "TK")))))
@@ -778,14 +786,15 @@
      :tempdir  ,*doc-template-dir*
      :outdir   ,*out-dir*
      :modstart ,*mod-start*
-     :grouped  ,*grouped*)))
+     :grouped  ,*grouped*
+     :file-no  ,*file-number-temp*)))
 
 
 ;;; Elõzõ munkamenet mentett adatainak visszatöltése a globális változókba.
 (defun load-state ()
   (let ((state (first (load-forms (appfile "state.txt")))))
     (when state
-      (destructuring-bind (&key doctype query1 query2 tempdir outdir modstart grouped &allow-other-keys)
+      (destructuring-bind (&key doctype query1 query2 tempdir outdir modstart grouped file-no &allow-other-keys)
           state
         (setf *doctype*          doctype
               *xls-query*        query1
@@ -794,7 +803,8 @@
               *out-dir*          outdir
               *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* tempdir))
               *mod-start*        modstart
-              *grouped*          grouped)))))
+              *grouped*          grouped
+              *file-number-temp* file-no)))))
 
 
 ;;; Vezérlõ globális változók alaphelyzetbe állítása.
@@ -806,7 +816,8 @@
         *out-dir*          (appdir)
         *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* (appdir)))
         *mod-start*        *mod-start-def*
-        *grouped*          (first *groupings*)))
+        *grouped*          (first *groupings*)
+        *file-number-temp* *file-no-default*))
 
 
 ;;; Dokumentumsablon-almappák ellenõrzése.
@@ -843,7 +854,7 @@
                            (getf rec :name))
                        *doctypes*)
                *doctype*)
-   (wg-text-input "Tanév kezdõdátum vagy módosítás érvényesség kezdõdátuma"
+   (wg-text-input "Tanév vagy módosítás érvényesség kezdõdátuma"
                   #'(lambda (text &rest rest)
                       (declare (ignore rest))
                       (setf *mod-start* text))
@@ -872,6 +883,15 @@
                    (setf *grouped* text))
                *groupings*
                *grouped*)
+
+   
+   (wg-text-input "Iktatószám-sablon"
+                  #'(lambda (text &rest rest)
+                      (declare (ignore rest))
+                      (setf *file-number-temp* text))
+                  *file-number-temp*)
+
+   
    (wg-button "Dokumentumok generálása"
               #'(lambda (interface)
                   (declare (ignore interface))

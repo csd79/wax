@@ -72,4 +72,19 @@ Progress window: mindig tegye a kurzort a szöveg aljára.
 
 ----------------------------------------------------------------------------
 
-Szövegbe mentett lisp adat (state) robosztus kezelése mehetne saját modulba!
+Legyen egy WAX-SCRIPT osztály, ami tartalmaz menthető állapotot (glob. változók helyett kulcs-érték párok); és automatikusan kezdeli a WAX-ERRORSINK és PROPERTY-ACCESSOR dolgokat.
+ Megy talán legyen egy START metódusa.
+
+A szkriptben ezt példányosítjuk?
+
+----------------------------------------------------------------------------
+
+GUI window: elemek legyenek rendezve vízszintesen!
+
+----------------------------------------------------------------------------
+
+LINE mehet wax.lisp-be
+
+----------------------------------------------------------------------------
+
+Az összevont dokumentumgenerálás elvileg baromság, mert végül minden a POszeidonban lel végső nyugalomra. Külön kell lenniük!

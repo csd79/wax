@@ -8,12 +8,13 @@
 
 
 (defparameter *independent-exe* nil)
+(defparameter *dev-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\")
 
 
 (defun appdir ()
   (if *independent-exe*
       (namestring (lw:current-pathname))
-    "c:\\Users\\cselovszkid\\common-lisp\\wax\\"))
+      *dev-dir*))
 
 
 (defun appfile (file)
