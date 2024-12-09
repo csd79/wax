@@ -12,16 +12,17 @@
 
 (defparameter *xls-query*        "")
 (defparameter *xls-query2*       "")
+(defparameter *kir-wbook*        "")
 (defparameter *doc-template-dir* "")
 (defparameter *out-dir*          "")
 (defparameter *xls-tks*          "")
-(defparameter *grouped*          "")
+;(defparameter *grouped*          "")
 
 (defparameter *file-no-default*  "TK/194/HR/KOZINT/-/2024")
 (defparameter *file-number-temp* *file-no-default*)
 
-(defparameter *groupings*        '("Minden dokumentm külön fájlba"
-                                   "Azonos személyi körbe tartozó személyek dokumentumai egy fájlba"))
+#|(defparameter *groupings*        '("Minden dokumentm külön fájlba"
+                                   "Azonos személyi körbe tartozó személyek dokumentumai egy fájlba"))|#
 
 (defparameter *doctype*          "")
 
@@ -203,6 +204,10 @@
          ,@body-only))))
 
 
+;;; ----------------------------------------------------------------------
+;;; TK vezetõk adatai
+
+
 (defparameter *tk-data* nil)
 
 ;;; TK vezetõ adatok
@@ -216,6 +221,69 @@
   (xaselect *tk-data*
             #'(lambda (row)
                 (astring= (xcref row "TK") tk))))
+
+
+;;; ----------------------------------------------------------------------
+;;; KIR felhelylista
+
+
+(defparameter *kir-data* nil)
+
+(defun parse-string (value &key (numproc #'identity) (ignore-error t))
+  (typecase value
+    (string value)
+    (number (format nil "~d" (funcall numproc value)))
+    (t      (unless ignore-error (error "Value should be of type NUMBER or STRING.")))))
+
+(defun parse-number (value &key (strproc #'read-from-string) (ignore-error t))
+  (typecase value
+    (string (unless (string= value "") (funcall strproc value)))
+    (number value)
+    (t      (unless ignore-error (error "Value should be of type NUMBER or STRING.")))))
+
+(defun parse-number-as-string (value length)
+  (let ((num (parse-number value)))
+    (if num
+      (let* ((str (format nil "~d" num))
+             (len (length str)))
+        (if (<= length len)
+          (subseq str (- len length))
+          (format nil "~v{~A~:*~}~D" (- length len) '("0") num)))
+      "")))
+
+(defun xarray-zero-index-p (xarray)
+  (zerop (length (index xarray))))
+
+(defun feh-address (kir-row &optional (not-found-value "………………"))
+  (if kir-row
+    (if (xarray-zero-index-p kir-row)
+      not-found-value
+      (format nil "~D ~a, ~a"
+              (round (xcref kir-row "A feladatellátási hely irányítószáma"))
+              (xcref kir-row "A feladatellátási hely települése")
+              (xcref kir-row "A feladatellátási hely pontos címe")))
+    not-found-value))
+
+(defun kir-row (om fh)
+  (when *kir-wbook*
+    (unless *kir-data*
+      (with-workbook (:open *kir-wbook* :wsvars (data) :read-only t)
+        (cclet* ((filtered (xselect> data `(("Fenntartó típusa" "tankerületi központ"))))
+                 (bottom   (last-row filtered))
+                 (range    (range filtered 1 1 10 bottom)))
+          (setf *kir-data* (read-xarray range)))))
+    (when *kir-data*
+      (xaselect *kir-data*
+                #'(lambda (row)
+                    (and
+                     (string= (parse-number-as-string om 6)
+                              (parse-number-as-string (xcref row "OM azonosító") 6))
+                     (string= (parse-number-as-string fh 3)
+                              (parse-number-as-string (xcref row "A feladatellátási hely sorszáma") 3))))))))
+
+
+
+
 
 
 (defparameter *t2*
@@ -313,6 +381,12 @@
         (str:unwords (str:words
          (str:trim a)))))
 
+    (", $cím$^Mvagy^MMunkavégzés"
+     ,(vals-fn ((a "Szervezeti egység OM azonosító") (b "Szerv.egység feladat ellát hel"))
+        (if (and a b (string/= *kir-wbook* ""))
+          (feh-address (kir-row a b) "cím")
+          "cím")))
+    
     (,(format nil "Heti munkaideje:~C$……$ óra" #\tab)
      ,(vals-fn ((a "Heti óra"))
         (if (= a (round a))
@@ -689,7 +763,7 @@
   (format nil "~v@{~A~:*~}" n char))
 
 
-;;; Személyi kör feldolgozása egy fájlba gyûjtött SZTSZ-ekkel.
+#|;;; Személyi kör feldolgozása egy fájlba gyûjtött SZTSZ-ekkel.
 (defun process-grouped-ps (tk-ps-only ps dump step-progress-indicator quit-on-abort word)
   (let ((filename (newfile-grouped (xarows tk-ps-only 0))))
     ;; Ha jelen személyi körhöz nincs definiálva doctype:
@@ -713,7 +787,7 @@
                 (funcall dump "  HIBA!~%")))
             (setf first-doc nil)
             (funcall step-progress-indicator)
-            (funcall quit-on-abort)))))))
+            (funcall quit-on-abort)))))))|#
 
 
 ;;; Személyi kör feldolgozása, minden SZTSZ külön fájlba.
@@ -764,11 +838,12 @@
                (dump "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
                ;; Személyi kör sorok.
                (let ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps)))))
-                 (cond ((string= *grouped* (first *groupings*))
+;                 (cond ((string= *grouped* (first *groupings*))
                         (process-ungrouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort word))
-                       ((string= *grouped* (second *groupings*))
+#|                       ((string= *grouped* (second *groupings*))
                         (process-grouped-ps tk-ps-only ps #'dump #'step-progress-indicator #'quit-on-abort word))
-                       (t (error "Invalid grouping!"))))))))
+                       (t (error "Invalid grouping!"))))))))|#
+               ))))
        (!quit word)))))
 
 
@@ -783,10 +858,11 @@
    `(:doctype  ,*doctype*
      :query1   ,*xls-query*
      :query2   ,*xls-query2*
+     :kir      ,*kir-wbook*
      :tempdir  ,*doc-template-dir*
      :outdir   ,*out-dir*
      :modstart ,*mod-start*
-     :grouped  ,*grouped*
+;     :grouped  ,*grouped*
      :file-no  ,*file-number-temp*)))
 
 
@@ -794,16 +870,17 @@
 (defun load-state ()
   (let ((state (first (load-forms (appfile "state.txt")))))
     (when state
-      (destructuring-bind (&key doctype query1 query2 tempdir outdir modstart grouped file-no &allow-other-keys)
+      (destructuring-bind (&key doctype query1 query2 kir tempdir outdir modstart grouped file-no &allow-other-keys)
           state
         (setf *doctype*          doctype
               *xls-query*        query1
               *xls-query2*       query2
+              *kir-wbook*        kir
               *doc-template-dir* tempdir
               *out-dir*          outdir
               *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* tempdir))
               *mod-start*        modstart
-              *grouped*          grouped
+;              *grouped*          grouped
               *file-number-temp* file-no)))))
 
 
@@ -812,11 +889,12 @@
   (setf *doctype*          (getf (first *doctypes*) :name)
         *xls-query*        (appdir)
         *xls-query2*       ""
+        *kir-wbook*        ""
         *doc-template-dir* (appdir)
         *out-dir*          (appdir)
         *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* (appdir)))
         *mod-start*        *mod-start-def*
-        *grouped*          (first *groupings*)
+;        *grouped*          (first *groupings*)
         *file-number-temp* *file-no-default*))
 
 
@@ -846,7 +924,7 @@
   ;; Fõablak létrehozása
   (wg-window
    "Kinevezés-generáló"
-   (wg-options "Dokumentumtípus választása"
+   (wg-options " Dokumentumtípus választása                "
                #'(lambda (text &rest rest)
                    (declare (ignore rest))
                    (setf *doctype* text))
@@ -854,45 +932,48 @@
                            (getf rec :name))
                        *doctypes*)
                *doctype*)
-   (wg-text-input "Tanév vagy módosítás érvényesség kezdõdátuma"
+   (wg-text-input " Tanév/módosítás érvényesség kezdete"
                   #'(lambda (text &rest rest)
                       (declare (ignore rest))
                       (setf *mod-start* text))
                   *mod-start*)
-   (wg-file-selector "SAP lekérdezés eredménye"
+   (wg-file-selector " SAP lekérdezés eredménye                   "
                      (second *filereq-filter-xlsx*)
                      *filereq-filter-xlsx*
                      #'(lambda (text &rest rest)
                          (declare (ignore rest))
                          (setf *xls-query* text))
                      *xls-query*)
-   (wg-dir-selector "Dokumentumsablonok mappája"
+   (wg-file-selector " KIR feladatellátási helyek (opcionális)    "
+                     (second *filereq-filter-xlsx*)
+                     *filereq-filter-xlsx*
+                     #'(lambda (text &rest rest)
+                         (declare (ignore rest))
+                         (setf *kir-wbook* text))
+                     *kir-wbook*)
+   (wg-dir-selector " Dokumentumsablonok mappája             "
                     #'(lambda (text &rest rest)
                         (declare (ignore rest))
                         (setf *doc-template-dir* text
                               *xls-tks* (namestring (merge-pathnames *xls-tks-filename* text ))))
                     *doc-template-dir*)
-   (wg-dir-selector "Generált dokumentumok mappája"
+   (wg-dir-selector " Generált dokumentumok mappája         "
                     #'(lambda (text &rest rest)
                         (declare (ignore rest))
                         (setf *out-dir* text))
                     *out-dir*)
-   (wg-options "Dokumentumok csoportosítása"
+#|   (wg-options "Dokumentumok csoportosítása"
                #'(lambda (text &rest rest)
                    (declare (ignore rest))
                    (setf *grouped* text))
                *groupings*
-               *grouped*)
-
-   
-   (wg-text-input "Iktatószám-sablon"
+               *grouped*)|#
+   (wg-text-input " Iktatószám-sablon                                  "
                   #'(lambda (text &rest rest)
                       (declare (ignore rest))
                       (setf *file-number-temp* text))
                   *file-number-temp*)
-
-   
-   (wg-button "Dokumentumok generálása"
+   (wg-button " Dokumentumok generálása"
               #'(lambda (interface)
                   (declare (ignore interface))
                   ;; Ha dok.sablon almappák megvannak, indítás, egyébként figyelmeztetés.
@@ -911,11 +992,38 @@
 ;;; Sandbox
 
 
-
-
 (defun t1 ()
   (let
       ((in  "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\Kétoldalú kinevezésmódosítások\\Munkaszerzõdés-módosítás_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")
        (out "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmények\\teszt.docx"))
   (with-document (:doc output :open in :close t :save t)
     (!saveas2 output out))))
+
+
+(defun z ()
+  (with-property-accessors 
+    (let ((kirwb "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\kir_mukodo_feladatellatasi_helyek_2024_12_03.xlsx")
+          (xarray nil))
+      (with-workbook (:open kirwb :wsvars (data))
+        (cclet* ((filtered (xselect> data `(("Fenntartó típusa" "tankerületi központ"))))
+                 (bottom   (last-row filtered))
+                 (range    (range filtered 1 1 22 bottom)))
+          (setf xarray (read-xarray range))))
+      (print (xaref xarray 6 0))
+      (print (xaref xarray 7 2)))))
+
+
+
+(defun u ()
+  (with-property-accessors 
+    (let* ((*kir-wbook* "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\kir_mukodo_feladatellatasi_helyek_2024_12_03.xlsx")
+           (query "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\SAP lekérdezések\\EXPORT_om_fh.XLSX")
+           (xarray (with-workbook (:open query :wsvars (query-data))
+                     (read-xarray (used-range query-data)))))
+      (do-xarows (row r xarray)
+        (let* ((om      (xcref row "Szervezeti egység OM azonosító"))
+               (fh      (xcref row "Szerv.egység feladat ellát hel"))
+               (kir-row (kir-row om fh)))
+          (format t "~a, ~a: ~a~%"
+                  om fh
+                  (feh-address kir-row "cím")))))))

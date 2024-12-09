@@ -88,3 +88,7 @@ LINE mehet wax.lisp-be
 ----------------------------------------------------------------------------
 
 Az összevont dokumentumgenerálás elvileg baromság, mert végül minden a POszeidonban lel végső nyugalomra. Külön kell lenniük!
+
+----------------------------------------------------------------------------
+
+DUMP: legyen egy globálisan elérhető stream amibe dumpolni lehet simán FORMAT-tal. A Dump függvény is csak egy helyen legyen meghívva a ciklusban: akkor kiolvas mindent a stream-ből (ürítve azt) és kiírja az ablakba.
