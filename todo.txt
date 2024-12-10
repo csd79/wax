@@ -37,7 +37,6 @@ A *T2* string minták legyenek egy external lisp-fájlban, hogy lehessen őket s
 -----------------------------------------------------------------------------
 
 Excel-típusok helyes kezelése? Milyen jó lenne, ha egy kiolvasott tömbben az adatok már olyan típusúak lennének, hogy az rögtön használható legyen!
-Pontosan mi a különbség a value2 és value között?
 
 -----------------------------------------------------------------------------
 
@@ -62,12 +61,6 @@ Kell hozzá fn ami dátum szöveget Excel dátum számmá alakít.
 
 ----------------------------------------------------------------------------
 
-SZTSZ: 10099476
-Dr. Gajda Péter Pál
-Neki 3 db. AJ ösztöndíjja van. Mit hoz a program?   módosítás B2
-
-----------------------------------------------------------------------------
-
 Progress window: mindig tegye a kurzort a szöveg aljára.
 
 ----------------------------------------------------------------------------
@@ -84,10 +77,6 @@ GUI window: elemek legyenek rendezve vízszintesen!
 ----------------------------------------------------------------------------
 
 LINE mehet wax.lisp-be
-
-----------------------------------------------------------------------------
-
-Az összevont dokumentumgenerálás elvileg baromság, mert végül minden a POszeidonban lel végső nyugalomra. Külön kell lenniük!
 
 ----------------------------------------------------------------------------
 

@@ -5,138 +5,54 @@
 
 
 ;; ----------------------------------------------------------------------
-;; Things that should go into CCOM
+;; Script state
 
 
-(defun empty-cell-p (value)
-  (or (and (stringp value)
-           (string= value ""))
-      (and (symbolp value)
-           (member value '(empty :empty)))
-      (null value)))
+(defparameter *state-file* "state" "Textfile to store script state between runs.")
 
 
-;; ----------------------------------------------------------------------
-;; csd utility stuff
+(defclass wax-script ()
+  ((state
+    :initarg :state
+    :accessor state)
+   (errorsink-on-p
+    :initarg :errorsink-on-p
+    :accessor errorsink-on-p)
+   (prop-accessors-on-p
+    :initarg :prop-accessors-on-p
+    :accessor prop-accessors-on-p)
+   (execute-fn
+    :initarg :execute-fn
+    :accessor execute-fn)
+   (dump-fn
+    :initarg :dump-fn
+    :accessor dump-fn)
+   (pstep-fn
+    :initarg :pstep-fn
+    :accessor pstep-fn)
+   (pabort-fn
+    :initarg :pabort-fn
+    :accessor pabort-fn))
+  (:documentation "'Global' state of a wax script."))
 
+(defmethod dump ((obj wax-script) control-string &rest args)
+  (apply (dump-fn obj) control-string args))
 
-;; CL universal time -> ISO-8601.
-(defun timestamp (ut &key (timeshift 0))
-  (let* ((timestamp  (local-time:timestamp+
-                      (local-time:universal-to-timestamp ut)
-                      timeshift :hour))
-         (timestring (local-time:format-timestring nil timestamp
-                                                   :format local-time:+iso-8601-format+)))
-    (subseq (cl-ppcre::regex-replace-all ":" timestring "-")
-            0 19)))
+(defmethod pstep ((obj wax-script) &key (abs nil) (step 1))
+  (funcall (pstep-fn obj) :abs abs :step step))
 
+(defmethod pabort ((obj wax-script))
+  (funcall (pabort-fn obj)))
 
-(defun clean-city (string)
-  (let ((words (str:words string)))
-    (str:unwords
-     (cons (astring-capitalize (first words))
-           (rest words)))))
+(defmethod save-state ((obj wax-script))
+  (save-forms
+   (appfile *state-file*)
+   (state obj)))
 
+(defmethod load-state ((obj wax-script))
+  (setf (state obj)
+        (load-forms (appfile *state-file*))))
 
-(defun clean-name (string)
-  (astring-capitalize
-   (str:trim
-    (str:unwords (str:words string)))))
+(defmethod init-state ((obj wax-script) &rest plist)
+  (setf (state obj) plist))
 
-
-(defun add-article (word)
-  (let* ((clean (str:trim (str:unwords (str:words word))))
-         (vowels '(#\a #\á #\e #\é #\i #\í #\o #\ó #\ö #\õ #\u #\ú #\ü #\û #\A #\Á #\E #\É #\I #\Í #\O #\Ó #\Ö #\Õ #\U #\Ú #\Ü #\Û))
-         (article (if (position (elt clean 0) vowels :test #'char=)
-                    "az" "a")))
-    (concatenate 'string article " " clean)))
-
-
-(defun group->word (orig-number)
-  (let* ((number   (round orig-number))
-         (ones     '("egy" "kettõ" "három" "négy" "öt" "hat" "hét" "nyolc" "kilenc"))
-         (tens     '("tíz" "húsz" "harminc" "negyven" "ötven" "hatvan" "hetven" "nyolcvan" "kilencven"))
-         (tens+    '("tizen" "huszon" "harminc" "negyven" "ötven" "hatvan" "hetven" "nyolcvan" "kilencven"))
-         (hundreds '("egyszáz" "kettõszáz" "háromszáz" "négyszáz" "ötszáz" "hatszáz" "hétszáz" "nyolcszáz" "kilencszáz"))
-         (result   '())
-         (a        (truncate number 100))
-         (b        (- (truncate number 10) (* a 10)))
-         (c        (- number (* a 100) (* b 10))))
-    (unless (zerop c)
-      (push (nth (1- c) ones) result))
-    (unless (zerop b)
-      (push (nth (1- b) (if (zerop c) tens tens+)) result))
-    (unless (zerop a)
-      (push (nth (1- a) hundreds) result))
-    (apply #'concatenate 'string result)))
-    
-
-(defun sub->words (orig-number)
-  (unless orig-number
-    (error "~a is not a number." orig-number))
-  (let ((number (round orig-number)))
-    (when (> number 999999999)
-      (error "The value ~a is larger than 999 999 999."))
-    (if (zerop number)
-      "nulla"
-      (let* ((result '())
-             (a      (truncate number 1000000))
-             (b      (- (truncate number 1000) (* a 1000)))
-             (c      (- number (* a 1000000) (* b 1000))))
-        (unless (zerop c)
-          (push (group->word c) result))
-        (unless (zerop b)
-          (push (concatenate 'string (group->word b) "ezer-") result))
-        (unless (zerop a)
-          (push (concatenate 'string (group->word a) "millió-") result))
-        (let* ((final  (apply #'concatenate 'string result))
-               (length (length final)))
-          (if (char= (elt final (1- (length final))) #\-)
-            (subseq final 0 (- length 1))
-            final))))))
-
-
-(defun currency (number)
-  (format nil "~,,' ,3:d" (round number)))
-
-
-(defun identify-month (string)
-  (when (stringp string)
-    (let* ((mon '(("jan" "january" "januar" "január")
-                  ("feb" "february" "februar" "február")
-                  ("mar" "már" "march" "marcius" "március")
-                  ("apr" "ápr" "april" "aprilis" "április")
-                  ("maj" "máj" "may" "majus" "május")
-                  ("jun" "jún" "june" "junius" "június")
-                  ("jul" "júl" "july" "julius" "július")
-                  ("aug" "august" "augusztus")
-                  ("sep" "szep" "szept" "september" "szeptember")
-                  ("okt" "oct" "october" "oktober" "október")
-                  ("nov" "november")
-                  ("dec" "december")))
-           (pos (position-if
-                 #'(lambda (sublist)
-                     (member string sublist :test #'astring-equal))
-                 mon)))
-      (when pos (1+ pos)))))
-
-
-(defun parse-hudate (string)
-  (destructuring-bind (year month day)
-      (multiple-value-bind (full vector)
-          (cl-ppcre:scan-to-strings
-           "^.*(\\d{2,4})[^a-zA-z\\d:]+(\\d{1,2}|[\\p{L}\\p{M}]+)[^a-zA-z\\d:]+(\\d{1,2}).*$" string)
-        (declare (ignore full))
-        (coerce vector 'list))
-    (let* ((year-raw (parse-integer year))
-           (year-ok  (if (< year-raw 100)
-                       (+ 2000 year-raw)
-                       year))
-           (month-ok (or (parse-integer month :junk-allowed t)
-                         (identify-month month))))
-      (list year-ok month-ok (parse-integer day)))))
-
-
-(defun hudate->unitime (hudatelist)
-  (apply #'encode-universal-time
-         0 0 0 (reverse hudatelist)))

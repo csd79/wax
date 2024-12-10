@@ -18,6 +18,15 @@
    #:override-pairs
    #:drop-nils
    #:modify-plist
+   #:timestamp
+   #:identify-month
+   #:parse-hudate
+   #:hudate->unitime
+   #:sub->words
+   #:currency
+   #:clean-city
+   #:clean-name
+   #:add-article
    #:with-progress
    #:wg-text-input
    #:wg-file-selector
@@ -29,13 +38,7 @@
    #:wg-floating-message
    #:wg-confirm
    #:with-wax-errorsink
-   #:empty-cell-p
-   #:timestamp
-   #:clean-city
-   #:clean-name
-   #:add-article
-   #:sub->words
-   #:currency
-   #:identify-month
-   #:parse-hudate
-   #:hudate->unitime))
+
+
+
+))

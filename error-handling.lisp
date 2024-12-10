@@ -64,39 +64,44 @@
                                 (backtrace->string))))))
 
 
-;;; Wrapper macro to add errorhandling to main loop.
-(defmacro with-wax-errorsink (&body body)
-  `(if *independent-exe*
-     ;; Errorsink on
-     (catch 'sinked
-       (handler-bind ((com:com-dispatch-invoke-exception-error
-                       #'(lambda (error)
-                           (dispatch-wg-errordial
-                            (com-dispatch-invoke-exception-error-details error)
-                            "~a: ~a: ~a" :source :method-name :description)
-                           (throw 'sinked nil)))
-                      (com:com-error
-                       #'(lambda (error)
-                           (dispatch-wg-errordial
-                            (com-error-details error)
-                            "Hiba: hresult: ~a; függvény: ~a" :hresult :fn-name)
-                           (throw 'sinked nil)))
-                      (error
-                       #'(lambda (error)
-                           (dispatch-wg-errordial
-                            (condition-string-or-type error)
-                            "Hiba: ~a" :data)
-                           (throw 'sinked nil)))
-                      (condition
-                       #'(lambda (condition)
-                           (dispatch-wg-errordial
-                            (condition-string-or-type condition)
-                            "Váratlan állapot: ~a" :data)
-                           (throw 'sinked nil))))
-         ,@body))
-     ;; Conditions passed to LW.
-     (progn ,@body)))
+;(defparameter *errorsink-on-p* nil "Swtich errorsink on/off.")
 
+;;; Wrapper macro to add errorhandling to main loop.
+(defmacro with-wax-errorsink (enabled &body body)
+  `(flet ((body-fn () ,@body))
+     (if ,enabled
+       ;; Errorsink on
+       (catch 'sinked
+         (handler-bind ((com:com-dispatch-invoke-exception-error
+                         #'(lambda (error)
+                             (dispatch-wg-errordial
+                              (com-dispatch-invoke-exception-error-details error)
+                              "~a: ~a: ~a" :source :method-name :description)
+                             (throw 'sinked nil)))
+                        (com:com-error
+                         #'(lambda (error)
+                             (dispatch-wg-errordial
+                              (com-error-details error)
+                              "Hiba: hresult: ~a; függvény: ~a" :hresult :fn-name)
+                             (throw 'sinked nil)))
+                        (error
+                         #'(lambda (error)
+                             (dispatch-wg-errordial
+                              (condition-string-or-type error)
+                              "Hiba: ~a" :data)
+                             (throw 'sinked nil)))
+                        (condition
+                         #'(lambda (condition)
+                             (dispatch-wg-errordial
+                              (condition-string-or-type condition)
+                              "Váratlan állapot: ~a" :data)
+                             (throw 'sinked nil))))
+           (body-fn)))
+;           ,@body))
+       ;; Conditions passed to LW.       
+;       (progn ,@body)))
+       (body-fn))))
+  
 
 ;; ----------------------------------------------------------------------
 ;; Sandbox
