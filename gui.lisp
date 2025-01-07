@@ -121,32 +121,47 @@
    :change-callback callback))
 
 
-(defun wg-file-selector (label filter filters callback text)
+(defun wg-file-selector (label message filter filters callback text &key (cancel nil))
   (make-instance
    'capi:text-input-pane
    :title label
    :text text
    :buttons `(:browse-file
-              (:if-does-not-exist :error
+              (:message ,message
+               :pathname ,(if (string= text "") (appdir) text)
+               :if-does-not-exist :error
                :filter ,filter
                :filters ,filters)
-              :ok nil)
-   :callback callback
-   :change-callback callback))
+              :ok nil
+              :cancel ,cancel
+              :cancel-function ,#'(lambda (pane)
+                                    (setf (capi:text-input-pane-text pane) "")
+                                    (when cancel
+                                      (funcall cancel))))
+;   :callback callback
+;   :editing-callback callback
+;   :change-callback callback
+   :text-change-callback callback
+   ))
 
 
-(defun wg-dir-selector (label callback text)
+(defun wg-dir-selector (label message callback text)
   (make-instance
    'capi:text-input-pane
    :title label
    :text text
    :buttons `(:browse-file
-              (:directory t
+              (:message ,message
+               :pathname ,(if (string= text "") (appdir) text)
+               :directory t
                :if-does-not-exist :error
                :use-file-dialog t)
               :ok nil)
-   :callback callback
-   :change-callback callback))
+;   :callback callback
+;   :editing-callback callback
+;   :change-callback callback
+   :text-change-callback callback
+   ))
 
 
 (defun wg-options (label callback items item)
@@ -173,7 +188,7 @@
     :description list)
    :best-x '(- (/ :screen-width 2) 200)
    :best-y '(- (/ :screen-height 2) 100)
-   :best-width 550
+   :best-width 650
    :title title))
 
 

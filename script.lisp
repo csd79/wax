@@ -13,12 +13,10 @@
 (defparameter *xls-query*        "")
 (defparameter *xls-query2*       "")
 (defparameter *kir-wbook*        "")
+(defparameter *fileno-wbook*     "")
 (defparameter *doc-template-dir* "")
 (defparameter *out-dir*          "")
 (defparameter *xls-tks*          "")
-
-(defparameter *file-no-default*  "TK/194/HR/KOZINT/-/2024")
-(defparameter *file-number-temp* *file-no-default*)
 
 (defparameter *doctype*          "")
 
@@ -39,12 +37,14 @@
 (defun b1-noks-fn ()
   #'(lambda (xarray)
       (and (string= (xcref xarray "SZK") "B1")
-           (member (xcref xarray "Munkakör") '("4336" "4211" "4214") :test #'string=))))
+;           (member (xcref xarray "Munkakör") '("4336" "4211" "4214") :test #'string=))))
+           (member (xcref xarray :x) '("4336" "4211" "4214") :test #'string=))))
 
 (defun b1-kiseg-fn ()
   #'(lambda (xarray)
       (and (string= (xcref xarray "SZK") "B1")
-           (not (member (xcref xarray "Munkakör") '("4336" "4211" "4214") :test #'string=)))))
+;           (not (member (xcref xarray "Munkakör") '("4336" "4211" "4214") :test #'string=)))))
+           (not (member (xcref xarray :x) '("4336" "4211" "4214") :test #'string=)))))
 
 (defparameter *doctypes*
   `(
@@ -105,11 +105,13 @@
       (select-doctype xarray)
     (declare (ignore subdir))
     (when template
-      (let* ((tk (xcref xarray "Vállalat hosszú megnevezése"))
-             (tk-short (format nil "~a TK" (first (str:words tk)))))
-        (format nil "~a~a, ~a, ~a, ~a, ~a" *out-dir* tk-short szk (clean-name (xcref xarray "Név"))
+      (let* ((tk      (xcref xarray "Vállalat hosszú megnevezése"))
+             (tk-ok   (remove-illegal-filename-chars (format nil "~a TK" (first (str:words tk)))))
+             (name-ok (remove-illegal-filename-chars (str:replace-all " " "_" (remove-illegal-filename-chars (clean-name (xcref xarray "Név")))))))
+#|        (format nil "~a~a, ~a, ~a, ~a, ~a" *out-dir* tk-ok szk name-ok
                 (timestamp (get-universal-time))
-                template)))))
+                template)))))|#
+        (format nil "~a~a_kinevezésmódosítás_2025_01_01" *out-dir* name-ok)))))
 
 
 (defun tempfile ()
@@ -130,10 +132,12 @@
 
 (defun get-fees (xarray)
   (let ((result '())
-        (codes  '(:code :name :sum :start :end)))
+        (codes  '(:code :name :sum :start :end :titl)))
     (do-xarows (row r xarray)
-      (push (get-fee-row row '(15 16 17 35 29) codes) result)
-      (push (get-fee-row row '(19 20 21 34 30) codes) result))
+;      (push (get-fee-row row '(15 16 17 35 29) codes) result)
+;      (push (get-fee-row row '(19 20 21 34 30) codes) result))
+      (push (get-fee-row row '(15 16 17 36 30 39) codes) result) ; kód név összeg kezdete vége címzetes
+      (push (get-fee-row row '(19 20 21 35 31 39) codes) result))
     (remove-if #'(lambda (elem)
                    (string= "" (getf elem :code)))
                (remove-duplicates result :test #'equalp))))
@@ -144,14 +148,19 @@
                (string= code (getf record :code))) fees))
 
 
-(defun fee-name (code eila refs)
+(defun fee-name (code eila titl refs)
   (let ((found (find-if #'(lambda (ref)
                             (let* ((meta  (getf ref :meta))
                                    (mcode (getf meta :code))
-                                   (meila (getf meta :eila)))
+                                   (meila (getf meta :eila))
+                                   (mtitl (getf meta :titl))
+                                   )
                               (and (member code mcode :test #'string=)
                                    (if meila
                                      (member eila meila :test #'string=)
+                                     t)
+                                   (if mtitl
+                                     (member titl mtitl :test #'string=)
                                      t))))
                         refs)))
     (when found
@@ -220,10 +229,12 @@
     (t      (unless ignore-error (error "Value should be of type NUMBER or STRING.")))))
 
 (defun parse-number (value &key (strproc #'read-from-string) (ignore-error t))
-  (typecase value
-    (string (unless (string= value "") (funcall strproc value)))
-    (number value)
-    (t      (unless ignore-error (error "Value should be of type NUMBER or STRING.")))))
+  (let ((parsed (typecase value
+                  (string (unless (string= value "") (funcall strproc value)))
+                  (number value)
+                  (t      (unless ignore-error (error "Value should be of type NUMBER or STRING."))))))
+    (when (numberp parsed)
+      parsed)))
 
 (defun parse-number-as-string (value length)
   (let ((num (parse-number value)))
@@ -249,7 +260,7 @@
     not-found-value))
 
 (defun kir-row (om fh)
-  (when *kir-wbook*
+  (when (string/= *kir-wbook* "")
     (unless *kir-data*
       (with-workbook (:open *kir-wbook* :wsvars (data) :read-only t)
         (cclet* ((filtered (xselect> data `(("Fenntartó típusa" "tankerületi központ"))))
@@ -260,18 +271,51 @@
       (xaselect *kir-data*
                 #'(lambda (row)
                     (and
-                     (string= (parse-number-as-string om 6)
+                     (= (parse-number om) (parse-number (xcref row "OM azonosító")))
+                     (= (parse-number fh) (parse-number (xcref row "A feladatellátási hely sorszáma")))))))))
+#|                     (string= (parse-number-as-string om 6)
                               (parse-number-as-string (xcref row "OM azonosító") 6))
                      (string= (parse-number-as-string fh 3)
-                              (parse-number-as-string (xcref row "A feladatellátási hely sorszáma") 3))))))))
+                              (parse-number-as-string (xcref row "A feladatellátási hely sorszáma") 3))))))))|#
+
+
+;;; ----------------------------------------------------------------------
+;;; KIR felhelylista
+
+
+(defparameter *fileno-data* nil)
+
+
+(defun fileno-row (sztsz)
+  (when (string/= *fileno-wbook* "")
+    ;; Ha még nincs beolvasva, beolvasás
+    (unless *fileno-data*
+      (with-workbook (:open *fileno-wbook* :wsvars (data) :read-only t)
+        (cclet* ((bottom (last-row data))
+                 (range  (range data 1 1 10 bottom)))
+          (setf *fileno-data* (read-xarray range)))))
+    ;; Iktatószám keresése
+    (when *fileno-data*
+      (xaselect *fileno-data*
+                #'(lambda (row)
+                    (= (parse-number sztsz) (parse-number (xcref row "SZTSZ"))))))))
+#|                    (string= (parse-number-as-string sztsz 8)
+                             (parse-number-as-string (xcref row "SZTSZ") 8)))))))|#
+
+
+;;; ----------------------------------------------------------------------
+;;; Átírások
 
 
 (defparameter *t2*
   `(
     ("Iktatószám: $………………$^M"
-     ,(vals-fn ()
-        (declare (ignore xarray))
-        *file-number-temp*))
+     ,(vals-fn ((sztsz "SZTSZ"))
+        (let ((row (fileno-row sztsz)))
+          (if (and row
+                   (not (zerop (xarray-indexed-height row))))
+            (xcref row "POSZEIDON iktatószám")
+            "………………"))))
 
     ("$………………$^MTANKERÜLETI^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
@@ -352,7 +396,8 @@
               bx-prob)))))
 
     (,(format nil "unkaköre:~C$………………$^M" #\tab)
-     ,(vals-fn ((a "Munkakör"))
+;     ,(vals-fn ((a "Munkakör"))
+     ,(vals-fn ((a :y))
         (str:unwords (str:words
          (str:trim a)))))
 
@@ -427,29 +472,46 @@
         (declare (ignore xarray))
         *mod-start*))
 
-    ("hatállyal $………………$ alapján az alábbiak szerint állapítom meg.^M"
-     ,(vals-fn ((szk "SZK") (bes "Bérrendsz. csop név") (eila "Esélyteremtési illetményrészre")) :fees fees
-        (let ((cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2024*)
-              (cref::*codenames* cref::*puetv-megnevezes-2024*)
+    (" heti munkaidejére tekintettel – $………………$ alapján az alábbiak szerint állapítom meg.^M"
+     ,(vals-fn ((szk "SZK") (bes "Bérrendsz. csop név") (eila "Esélyteremtési illetményrészre")
+                (titl "CÍm")) :fees fees
+        (let ((cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2025jan*)
+              (cref::*codenames* cref::*puetv-megnevezes-2025jan*)
+#|              (cref::*defined-tvs* (if (string= bes "Gyakornok")
+                                     '("1puetv" "2puetv-vhr")
+                                     '("1puetv"))))|#
+              (cref::*defined-tvs* '("1puetv")))
+          (let* ((codes (mapcar #'(lambda (fee) (getf fee :code)) fees))
+                 (fees  (cref::fees :codes codes :ps szk :lab bes :eila eila :titl titl))
+                 (text  (cref::convert fees)))
+            text))))
+
+#|    ("rendelet 3. § (3) bekezdésére tekintettel – $………………$ alapján az alábbiak"
+     ,(vals-fn ((szk "SZK") (bes "Bérrendsz. csop név") (eila "Esélyteremtési illetményrészre")
+                (titl "CÍm")) :fees fees
+        (let ((cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2025jan*)
+              (cref::*codenames* cref::*puetv-megnevezes-2025jan*)
               (cref::*defined-tvs* (if (string= bes "Gyakornok")
                                      '("1puetv" "2puetv-vhr")
                                      '("1puetv"))))
           (let* ((codes (mapcar #'(lambda (fee) (getf fee :code)) fees))
-                 (fees  (cref::fees :codes codes :ps szk :lab bes :eila eila))
+                 (fees  (cref::fees :codes codes :ps szk :lab bes :eila eila :titl titl))
                  (text  (cref::convert fees)))
-            text))))
+            text))))|#
 
     (,(format nil "$Havi illetmény:~C………………~CFt^MIlletmény összesen:~C………………~cFt$^M" #\tab #\tab #\tab #\tab)
      ,(vals-fn ((bd "Belépés dátuma") (hiv "Szerz.vége") (eila "Esélyteremtési illetményrészre")) :fees fees
-        (let* ((ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2024-sorrend*))
+;        (let* ((ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2024-sorrend*))
+        (let* ((ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2025jan-sorrend*))
                (total   0)
                (digest  (mapcar #'(lambda (fee)
-                                    (destructuring-bind (&key code name sum start end) fee
+                                    (destructuring-bind (&key code name sum start end titl) fee
                                       (declare (ignore name))
                                       (incf total sum)
                                       (append
                                        ;; Ill.e. megnevezés
-                                       (list (fee-name code eila cref::*puetv-b1b2b8b9-illetmenyelemek-2024*)
+;                                       (list (fee-name code eila cref::*puetv-b1b2b8b9-illetmenyelemek-2024*)
+                                       (list (fee-name code eila titl cref::*puetv-b1b2b8b9-illetmenyelemek-2025jan*)
                                              ;; Összeg
                                              (currency sum))
                                        ;; Megállapítás idõszak kezdete:
@@ -463,6 +525,9 @@
                                                       (hudate->unitime (parse-hudate *mod-start*)))
                                                  (excel-date-string bd :words t)
                                                  *mod-start*)))
+                                             ;; Pályakezdés után járó illetménynövekedés
+                                             ((string= code "1113")
+                                              (list "2025. január 1."))
                                              ;; Egyébként: ill.érvényesség kezdete, vagy ha nincs, belépés dátuma.
                                              (t (list (excel-date-string (or start bd) :words t))))
                                        ;; Vége dátum:
@@ -477,11 +542,18 @@
                                                        *school-year-end*
                                                        (min *school-year-end* hiv))
                                                      :words t)))
+                                             ;; Pályakezdés után járó illetménynövekedés
+                                             ((string= code "1113")
+                                              (list (excel-date-string
+                                                     (if (empty-cell-p hiv)
+                                                       46022 ; 2025.12.31.
+                                                       (min 46022 hiv))
+                                                     :words t)))
                                              ;; Egyébként, ha nem havi illetmény, és az ill.érv.vége
                                              ;;   meg van adva és nem 9999.12.31:
                                              ;;     ill.érv. vége
                                              ((and (string/= code "1P00")
-                                                   (not (empty-cell-p end)) ;;;;;;;HIÁNYOZHAT!!! MIÉÉÉÉÉÉÉÉÉÉÉRT?
+                                                   (not (empty-cell-p end))
                                                    (/= end 2958465))
                                               (list (excel-date-string end :words t)))
                                              ;; Egyébként: nem kell feltüntetni.
@@ -504,7 +576,7 @@
         (xcref (tk-row a) "Helységnév")))
 
     ("Pénzügyileg ellenjegyzem.^M^M$………………$,"
-     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         (xcref (tk-row a) "Helységnév")))
         
     ("$………………$^Mtankerületi igazgató^M"
@@ -512,6 +584,14 @@
         (xcref (tk-row a) "TK ig")))
         
     ("$………………$^Mgazdasági vezetõ^M"
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (xcref (tk-row a) "Gazdasági vez.")))
+
+    ("$NÉV$^Mtankerületi igazgató^M"
+     ,(vals-fn ((a "Vállalat hosszú megnevezése"))
+        (xcref (tk-row a) "TK ig")))
+        
+    ("$NÉV$^Mgazdasági vezetõ^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "Gazdasági vez.")))
     
@@ -532,7 +612,7 @@
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (round (xcref (tk-row a) "Törzsszám"))))
 
-    (", képviseli: $………………$ tankerületi igazgató)"
+    (", képviseli: $………………$ tankerületi igazgató"
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "TK ig")))
 
@@ -594,11 +674,11 @@
                   (currency sum)
                   (sub->words sum)))))
 
-    ("^M$………………$, 2024. "
+    (,(format nil "^M~C$………………$, 2025" #\tab)
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "Helységnév")))
 
-    ("Pénzügyileg ellenjegyzem.^M^M$………………………………$, "
+    (,(format nil "Pénzügyileg ellenjegyzem.^M^M~C$………………$" #\tab)
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "Helységnév")))
 
@@ -610,7 +690,9 @@
      ,(vals-fn ((a "Vállalat hosszú megnevezése"))
         (xcref (tk-row a) "Gazdasági vez.")))
     
-    (,(format nil "~C$………………$^M~Ctankerületi igazgató~Cmunkavállaló^M" #\tab #\tab #\tab)
+;    (,(format nil "~C$………………$^M~Ctankerületi igazgató~Cmunkavállaló^M" #\tab #\tab #\tab)
+;    (,(format nil "~C$………………$^M~Cszakmai vezetõ~Cmunkavállaló^M" #\tab #\tab #\tab) ; SIÓFOK
+    (,(format nil "~C$…..….…..….$^M" #\tab) ; ÉRD, és mostantól legyen így!
      ,(vals-fn ((a "Név"))
         (clean-name a)))
 
@@ -667,7 +749,17 @@
           (if (< prop 348800)
             ""
             ", valamint a pedagógusok új életpályájáról szóló 2023. évi LII. törvény (a továbbiakban: Púétv.) végrehajtásáról szóló 401/2023. (VIII. 30.) Korm. rendelet 95. § (1) bekezdése"))))
-))
+
+
+    ("A munkavállaló a munkaviszonyból származó igényének érvényesítése érdekében a $Púétv.$ 132. § (1) bekezdése"
+     ,(vals-fn ((ho "Heti óra")) :fees fees
+        (let* ((sum  (getf (first fees) :sum))
+               (prop (* 100 (round (* (/ sum ho) 40) 100))))
+          (if (< prop 348800)
+            "pedagógusok új életpályájáról szóló 2023. évi LII. törvény"
+            "Púétv."))))
+
+    ))
 
 
 (defun temp-target (temp)
@@ -708,6 +800,11 @@
     (delete-file fragment)))
 
 
+(defconstant +wd-field-page+ 33)
+(defconstant +wd-header-footer-even-pages+ 3)
+(defconstant +wd-align-paragraph-center+ 1)
+
+
 ;;; Newer version using fragments.
 (defun add-template (word doc xarray first-doc page-break-needed)
   ;; Új temp file dok.sablon alapján
@@ -735,7 +832,13 @@
                 (?startingnumber pg-nums) 1                  ; Oldalszámozás kezdése 1-tõl (elsõ o. beleszámítva)
                 (?differentfirstpageheaderfooter pg-setup) t ; Elsõ oldalon eltérõ fejléc/lábléc
                 (?mirrormargins pg-setup) t                  ; Tükörmargók
-                (?oddandevenpagesheaderfooter pg-setup) t))) ; Eltérõ páros- és páratlan oldalak
+                (?oddandevenpagesheaderfooter pg-setup) t)   ; Eltérõ páros- és páratlan oldalak
+          (cclet* ((evenh (!item (?headers sect-trg) +wd-header-footer-even-pages+))
+                   (headr (?range evenh)))
+;            (!add (?fields headr) headr +wd-field-page+ :empty nil)
+            (setf (?alignment (?paragraphformat headr)) +wd-align-paragraph-center+
+                  (?name (?font headr)) "Times New Roman"
+                  (?size (?font headr)) 12))))
       ;; Eredmény állapotának mentése
       (!save doc)
       t)))
@@ -746,25 +849,37 @@
   (format nil "~v@{~A~:*~}" n char))
 
 
+(defconstant +wd-format-pdf+ 17)
+
+
 ;;; Személyi kör feldolgozása, minden SZTSZ külön fájlba.
 (defun process-ungrouped-ps (tk-ps-only ps dump step-progress-indicator quit-on-abort word)
   ;; Iteráció SZTSZ-eken:
   (xadouniques (sztsz tk-ps-only "SZTSZ")
-    (let* ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz))))
+;    (let* ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (astring= (xcref row "SZTSZ") sztsz))))
+    (let* ((sztszp (round (parse-number sztsz)))
+           (sztsz-only (xaselect tk-ps-only #'(lambda (row) (= (parse-number (xcref row "SZTSZ"))
+                                                               sztszp))))
+;                                                               (parse-number sztsz)))))
+#|    (let* ((sztsz-only (xaselect tk-ps-only #'(lambda (row) (string= (parse-number-as-string (xcref row "SZTSZ") 8)
+                                                                     (parse-number-as-string sztsz 8)))))|#
            (filename   (newfile-ungrouped (xarows sztsz-only 0))))
       ;; Ha személyi körhöz nincs definiálva doctype:
       (if (not filename)
         (progn 
-          (funcall dump "SZTSZ: ~a   kihagyva, a ~a személyi körhöz nincs definiálva dokumentumsablon.~%" sztsz ps)
+          (funcall dump "SZTSZ: ~a   kihagyva, a ~a személyi körhöz nincs definiálva dokumentumsablon.~%" sztszp ps)
           (funcall step-progress-indicator))
         ;; Ha van:
         (progn
           (with-document (:doc output :app word :close t :save t)
             (!saveas2 output filename)
-            (funcall dump "SZTSZ: ~a" sztsz)
+            (funcall dump "SZTSZ: ~a" sztszp)
             ;; SZTSZ adatainak beírása a dokumentumba.
             (if (add-template word output sztsz-only t nil)
-              (funcall dump "  ok~%")
+              (progn
+                (!saveas2 output (namestring (make-pathname :type "pdf" :defaults filename))
+                         +wd-format-pdf+)
+                (funcall dump "  ok~%"))
               (funcall dump "  HIBA!~%")))
           (funcall step-progress-indicator)
           (funcall quit-on-abort))))))
@@ -772,8 +887,10 @@
 
 ;;; Dokumentumok generálása
 (defun process ()
-  (with-wax-errorsink nil
-   (with-property-accessors t
+  (with-wax-errorsink
+   (with-property-accessors
+     (setf (errorsink-on) nil;t
+           (property-accessors-on) t)
      (cclet* ((tk-head "Vállalat hosszú megnevezése")
               (word    (com:create-object :progid "Word.Application"))
               (query   nil))
@@ -783,7 +900,8 @@
          (setf query (read-xarray (used-range ws-query))))
        ;; Progress bar
        (with-progress ("Dokumentumok generálása" quit-on-abort dump step-progress-indicator
-                       (length (xauniques query "SZTSZ" :test #'astring=)))
+;                       (length (xauniques query "SZTSZ" :test #'astring=)))
+                       (length (xauniques query "SZTSZ")))
          (dump "~%~%")
          ;; Iteráció TK-kon.
          (xadouniques  (tk query tk-head)
@@ -804,33 +922,43 @@
 
 ;;; Globális változók értékének mentése köv. munkamenethez.
 (defun save-state ()
-  (save-forms
-   (appfile "state.txt")
-   `(:doctype  ,*doctype*
-     :query1   ,*xls-query*
-     :query2   ,*xls-query2*
-     :kir      ,*kir-wbook*
-     :tempdir  ,*doc-template-dir*
-     :outdir   ,*out-dir*
-     :modstart ,*mod-start*
-     :file-no  ,*file-number-temp*)))
+  (let ((filename (appfile "state.txt")))
+    (when (probe-file filename)
+      (hide-file filename nil))
+    (save-forms
+     filename
+     `(:doctype  ,*doctype*
+       :query1   ,*xls-query*
+       :query2   ,*xls-query2*
+       :kir      ,*kir-wbook*
+       :tempdir  ,*doc-template-dir*
+       :outdir   ,*out-dir*
+       :modstart ,*mod-start*
+       :filenos  ,*fileno-wbook*))
+;    (uiop:run-program (list "attrib" "+h" (namestring filename)))))
+    (hide-file filename t)))
 
 
 ;;; Elõzõ munkamenet mentett adatainak visszatöltése a globális változókba.
 (defun load-state ()
-  (let ((state (first (load-forms (appfile "state.txt")))))
-    (when state
-      (destructuring-bind (&key doctype query1 query2 kir tempdir outdir modstart grouped file-no &allow-other-keys)
-          state
-        (setf *doctype*          doctype
-              *xls-query*        query1
-              *xls-query2*       query2
-              *kir-wbook*        kir
-              *doc-template-dir* tempdir
-              *out-dir*          outdir
-              *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* tempdir))
-              *mod-start*        modstart
-              *file-number-temp* file-no)))))
+  (let ((filename (appfile "state.txt")))
+    (hide-file filename nil)
+    (let ((state (load-forms (appfile "state.txt"))))
+      (when state
+        (destructuring-bind (&key doctype query1 query2 kir tempdir outdir modstart grouped filenos
+                                  &allow-other-keys)
+            state
+          (setf *doctype*          doctype
+                *xls-query*        query1
+                *xls-query2*       query2
+                *kir-wbook*        kir
+                *doc-template-dir* tempdir
+                *out-dir*          outdir
+                *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* tempdir))
+                *mod-start*        modstart
+                *fileno-wbook*     filenos
+                ))))
+    (hide-file filename t)))
 
 
 ;;; Vezérlõ globális változók alaphelyzetbe állítása.
@@ -843,7 +971,8 @@
         *out-dir*          (appdir)
         *xls-tks*          (namestring (merge-pathnames *xls-tks-filename* (appdir)))
         *mod-start*        *mod-start-def*
-        *file-number-temp* *file-no-default*))
+        *fileno-wbook*     ""
+        ))
 
 
 ;;; Dokumentumsablon-almappák ellenõrzése.
@@ -871,7 +1000,7 @@
   (load-state)
   ;; Fõablak létrehozása
   (wg-window
-   "Kinevezés-generáló"
+   "Iratgeneráló (Egyoldalú kinevezésmódosítás, köznevelési foglalkoztatottak, 2025.jan)"
    (wg-options " Dokumentumtípus választása                "
                #'(lambda (text &rest rest)
                    (declare (ignore rest))
@@ -886,35 +1015,55 @@
                       (setf *mod-start* text))
                   *mod-start*)
    (wg-file-selector " SAP lekérdezés eredménye                   "
+                     "SAP lekérdezés eredménye"
                      (second *filereq-filter-xlsx*)
                      *filereq-filter-xlsx*
                      #'(lambda (text &rest rest)
                          (declare (ignore rest))
                          (setf *xls-query* text))
                      *xls-query*)
-   (wg-file-selector " KIR feladatellátási helyek (opcionális)    "
+   (wg-file-selector " Iktatószámok listája (opcionális)             "
+                     "Iktatószámok listája"
                      (second *filereq-filter-xlsx*)
                      *filereq-filter-xlsx*
                      #'(lambda (text &rest rest)
                          (declare (ignore rest))
-                         (setf *kir-wbook* text))
-                     *kir-wbook*)
+                         (setf *fileno-wbook* text)
+                         (when (string= text "")
+                           (setf *fileno-data* nil)))
+                     *fileno-wbook*
+                     :cancel #'(lambda () (setf *fileno-wbook* ""
+                                                *fileno-data* nil)))
+   (wg-file-selector " KIR feladatellátási helyek (opcionális)    "
+                     "KIR feladatellátási helyek listája"
+                     (second *filereq-filter-xlsx*)
+                     *filereq-filter-xlsx*
+                     #'(lambda (text &rest rest)
+                         (declare (ignore rest))
+                         (setf *kir-wbook* text)
+                         (when (string= text "")
+                           (setf *kir-data* nil)))
+                     *kir-wbook*
+                     :cancel #'(lambda () (setf *kir-wbook* ""
+                                                *kir-data* nil)))
    (wg-dir-selector " Dokumentumsablonok mappája             "
+                    "Dokumentumsablonok mappája"
                     #'(lambda (text &rest rest)
                         (declare (ignore rest))
                         (setf *doc-template-dir* text
                               *xls-tks* (namestring (merge-pathnames *xls-tks-filename* text ))))
                     *doc-template-dir*)
    (wg-dir-selector " Generált dokumentumok mappája         "
+                    "Generált dokumentumok mappája"
                     #'(lambda (text &rest rest)
                         (declare (ignore rest))
                         (setf *out-dir* text))
                     *out-dir*)
-   (wg-text-input " Iktatószám-sablon                                  "
+#|   (wg-text-input " Iktatószám-sablon                                  "
                   #'(lambda (text &rest rest)
                       (declare (ignore rest))
                       (setf *file-number-temp* text))
-                  *file-number-temp*)
+                  *file-number-temp*)|#
    (wg-button " Dokumentumok generálása"
               #'(lambda (interface)
                   (declare (ignore interface))
@@ -933,4 +1082,13 @@
 ;;; ----------------------------------------------------------------------
 ;;; Sandbox
 
+
+
+(defun x ()
+  (with-property-accessors t
+;    (saving-with-intermediate-temp ("c:\\Users\\cselovszkid\\abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij.xlsx" fn)
+    (saving-with-intermediate-temp ("c:\\Users\\cselovszkid\\abcd.xlsx" fn)
+      (with-workbook (:wbook wbook :wsvars (wsheet) :save t)
+        (setf (xcell wsheet 1 1) "Áhhááááá!!!")
+        (!saveas wbook (fn))))))
 

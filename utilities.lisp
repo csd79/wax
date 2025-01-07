@@ -5,17 +5,82 @@
 
 
 ;; ----------------------------------------------------------------------
-;; History
+;; Pathnames
 
+
+(defun user-homedir ()
+  "Namestring of current user's Windows homedir."
+  (str:ensure-suffix "\\" (uiop:getenv "userprofile")))
+
+
+(defun user-tempdir ()
+  "Namestring of current user's Windows tempdir."
+  (flet ((first-6-chars (string)
+           (subseq string 0 (min (1- (length string)) 5))))
+    (let* ((raw  (uiop:getenv "tmp"))
+           (home (pathname-directory (user-homedir)))
+           (temp (pathname-directory raw)))
+      (loop for i from 0 below (length temp)
+            for w = (nth i temp)
+            for r = (nth i home) doing
+            (and (stringp w)
+                 (stringp r)
+                 (string-equal (first-6-chars w)
+                               (first-6-chars r))
+                 (find #\~ w)
+                 (setf (nth i temp) r)))
+      (str:ensure-suffix "\\"
+                         (namestring
+                          (make-pathname :directory temp :defaults raw))))))
+
+(defun random-alphanumeric-string (length)
+  "Generate a string of LENGTH containing random alphanumeric characters."
+  (let ((pool
+         '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9
+           #\a #\b #\c #\d #\e #\f #\g #\h #\i #\j #\k #\l #\m #\n #\o #\p #\q #\r #\s #\t #\u #\v #\w #\x #\y #\z
+           #\A #\B #\C #\D #\E #\F #\G #\H #\I #\J #\K #\L #\M #\N #\O #\P #\Q #\R #\S #\T #\U #\V #\W #\X #\Y #\Z
+           )))
+    (apply #'concatenate 'string
+         (loop for r = (length pool)
+               for i below length collecting
+               (string (nth (random r) pool))))))
+
+(defun new-temp-filename (type &key (length 6))
+  "Generate namestring for tempfile named by LENGTH number of random alphanumeric characters."
+  (let* ((tempdir (user-tempdir))
+         (name    (random-alphanumeric-string length))
+         (result  (concatenate 'string tempdir name "." type)))
+    (if (probe-file result)
+      (new-temp-filename type :length length)
+      result)))
+
+(defmacro saving-with-intermediate-temp ((filename tempname-fn) &body body)
+  "Helper for saving files with pathstring longer than 255 chars."
+  (let ((tempname (gensym))
+        (type     (gensym)))
+    `(let ((,tempname nil)
+           (,type     (pathname-type ,filename)))
+       (flet ((,tempname-fn () (setf ,tempname (new-temp-filename ,type))))
+         (progn ,@body)
+         (rename-file (pathname ,tempname)
+                      (pathname ,filename))))))
 
 (defparameter *independent-exe* nil "Modify APPDIR's behaviour.")
-(defparameter *dev-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\" "System dir on dev machine.")
+;(defparameter *dev-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\" "System dir on dev machine.")
 
 (defun appdir ()
   "Namestring of the directory containing wax."
   (if *independent-exe*
       (namestring (lw:current-pathname))
-      *dev-dir*))
+;      *dev-dir*))
+      (concatenate 'string (user-homedir) "common-lisp\\wax\\")))
+
+  
+
+;; ----------------------------------------------------------------------
+;; History
+
+
 
 (defun appfile (file)
   "Namestring of FILE inside wax's directory."
@@ -40,6 +105,15 @@
                        :if-does-not-exist :create)
     (dolist (form forms)
       (prin1 form out))))
+
+(defun hide-file (file switch)
+  "Switch hidden file attribute for FILE on/off."
+  (let ((filename (namestring file))
+        (option   (if switch "+h" "-h")))
+    (when (probe-file filename)
+      (uiop:run-program (list "attrib" option filename))
+      (unless switch
+        (sleep 1)))))
 
 
 ;; ----------------------------------------------------------------------
@@ -229,6 +303,16 @@
     (str:unwords
      (cons (astring-capitalize (first words))
            (rest words)))))
+
+(defun remove-illegal-filename-chars (string)
+  "Remova chars from STRING that are illegal in a Windows filename."
+  (let ((illegals '(#\< #\> #\: #\" #\/ #\\ #\| #\? #\*
+                    #\# #\% #\& #\{ #\} #\$ #\! #\' #\@ #\+ #\` #\=
+                    #\.
+                    ))
+        (copy     (copy-seq string)))
+    (mapc #'(lambda (char) (setf copy (delete char copy :test #'char=))) illegals)
+    copy))
 
 (defun clean-name (string)
   "STRING capitalized, with no leading, trailing or double spaces."

@@ -9,9 +9,15 @@
   (:export
    #:start
    #:appdir
+   #:user-homedir
+   #:user-tempdir
+   #:random-alphanumeric-string
+   #:new-temp-filename
+   #:saving-with-intermediate-temp
    #:appfile
    #:load-forms
    #:save-forms
+   #:hide-file
    #:keep-pairs
    #:remove-pairs
    #:modify-keys
@@ -25,6 +31,7 @@
    #:sub->words
    #:currency
    #:clean-city
+   #:remove-illegal-filename-chars
    #:clean-name
    #:add-article
    #:with-progress
@@ -37,8 +44,6 @@
    #:wg-msg
    #:wg-floating-message
    #:wg-confirm
+   #:errorsink-on
    #:with-wax-errorsink
-
-
-
 ))

@@ -72,7 +72,7 @@ A szkriptben ezt példányosítjuk?
 
 ----------------------------------------------------------------------------
 
-GUI window: elemek legyenek rendezve vízszintesen!
+GUI window: elemek legyenek rendezve vízszintesen! NE SPACE-szel mint most!
 
 ----------------------------------------------------------------------------
 
@@ -81,3 +81,31 @@ LINE mehet wax.lisp-be
 ----------------------------------------------------------------------------
 
 DUMP: legyen egy globálisan elérhető stream amibe dumpolni lehet simán FORMAT-tal. A Dump függvény is csak egy helyen legyen meghívva a ciklusban: akkor kiolvas mindent a stream-ből (ürítve azt) és kiírja az ablakba.
+
+----------------------------------------------------------------------------
+
+(SAVING-WITH-INTERMEDIATE-TEMP ("c:\......\longlame.xlsx" tempname)
+  ...
+  (!saveas2 doc tempname)
+  ...)
+
+
+(uiop:getenv "TMP")  =>  "c:\Users\CSELOV~1\AppData\Local\Temp"
+Ebből kéne kinyerni ezt: "c:\Users\CSELOVSKID\AppData\Local\Temp\"
+és ehhez hozzáadni a tempfile nevet ami kiterjesztésben azonos a megadott fájlnévvel és 4 random char ami még nem létezik a mappában
+
+----------------------------------------------------------------------------
+
+Az APPDIR-t átírni úgy h a "\common-lisp\" előtt részt (uiop:getenv "HOME")-mal állítsa elő.
+
+----------------------------------------------------------------------------
+
+Progress ablakot úgy kéne módosítani, hogy a végén a befejezés üzenet ne egy külön ablakban jelenjen meg, hanem egy addig inaktív "Bezárás" gomb váljon aktívvá. Ez azért jó, mert a művelet végén a felhasználó így szabadon szemlélhetné a szövegdoboz tartalmát.
+Esetleg egy "Szöveg mentése" gomb is aktiválódhatna.
+
+----------------------------------------------------------------------------
+
+UTYADUCK hibaablak:
+[ Hiba leírásának mentése ]   [ Bezárás ]
+A leírás mentésénél fájlnevet adhassunk meg, az alapértelmezett név a jelenlegi legyen.
+
