@@ -1,1 +1,0 @@
-(:DOCTYPE "Vagy amit akartok" :QUERY1 "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\___Kinevezések.XLSX" :QUERY2 "" :TEMPDIR :quux :OUTDIR "C:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Eredmények\\" :MODSTART 1234 :GROUPED "Minden dokumentm külön fájlba")

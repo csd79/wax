@@ -1,3 +1,14 @@
+Legyen az INJECT a szkriptben lévő mechanizmus helyett. A tételek leírása menjen külső fájlba amit menet közben tölt be.
+Viszont mivel az INJECT használja a WAX obj mechanizmust, azt is le kéne választani a most waxnak nevezett iratgenerálóról...
+
+
+
+
+
+
+
+
+
 Ha generálás közben megnyitunk egy word dokumentumot, a háttér word-ben nyílik meg, és a munkafájlok elkezdenek ugrálni a képernyőn. Margó otthoni gépén nem csinálja ezt, lehet hogy csak az új Office-szal?
 Kérdés hogy Excel is ezt csinálja-e, és hogy mi a megoldás. Sima app visible nil nem elég.
 
@@ -14,16 +25,7 @@ Ill.elem érvényesség kezdete (AJ, xref 35) oszlop hiányzik a kinevezés lek�
 
 -----------------------------------------------------------------------------
 
-Érdemes lenne a munkafájlokat (dok.sablont megnyitás előtt, átmeneti és összerakott dokumentumot mentésig) egy %home%temp mappűban tárolni, és a végén onnan átmozgatni az eredménymappába.
-Ha minden igaz, ez elkerülhetővé tenné a 255 karakternél hosszabb path-ból adódó hibákat.
-
------------------------------------------------------------------------------
-
-
-
-
-
-
+Hiba esetén, ha errorsink aktív, vagy ha kilépünk a debuggerből, a háttérben futó plusz Excel/Word példányoknak ki kéne lépniük!
 
 
 
@@ -62,25 +64,7 @@ Kell hozzá fn ami dátum szöveget Excel dátum számmá alakít.
 ----------------------------------------------------------------------------
 
 Progress window: mindig tegye a kurzort a szöveg aljára.
-
-----------------------------------------------------------------------------
-
-Legyen egy WAX-SCRIPT osztály, ami tartalmaz menthető állapotot (glob. változók helyett kulcs-érték párok); és automatikusan kezdeli a WAX-ERRORSINK és PROPERTY-ACCESSOR dolgokat.
- Megy talán legyen egy START metódusa.
-
-A szkriptben ezt példányosítjuk?
-
-----------------------------------------------------------------------------
-
-GUI window: elemek legyenek rendezve vízszintesen! NE SPACE-szel mint most!
-
-----------------------------------------------------------------------------
-
-LINE mehet wax.lisp-be
-
-----------------------------------------------------------------------------
-
-DUMP: legyen egy globálisan elérhető stream amibe dumpolni lehet simán FORMAT-tal. A Dump függvény is csak egy helyen legyen meghívva a ciklusban: akkor kiolvas mindent a stream-ből (ürítve azt) és kiírja az ablakba.
+EZ TÁN AZÉRT NEM MÜXIK, MERT A HÍVÁS EGY MÁSIK PROCESSBÓL JÖN. HASZNÁLJUK PL. AZ APPLY-IN-PANE-PROCESS-T!!!!
 
 ----------------------------------------------------------------------------
 

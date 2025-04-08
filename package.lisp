@@ -5,7 +5,7 @@
 
 
 (defpackage #:wax
-  (:use #:cl #:ccom #:achar)
+  (:use #:cl #:ccom3 #:achar #:msoffice)
   (:export
    #:start
    #:appdir
@@ -34,6 +34,7 @@
    #:remove-illegal-filename-chars
    #:clean-name
    #:add-article
+   #:line
    #:with-progress
    #:wg-text-input
    #:wg-file-selector
@@ -46,4 +47,37 @@
    #:wg-confirm
    #:errorsink-on
    #:with-wax-errorsink
-))
+   #:data-source
+   #:filename
+   #:data
+   #:loaded-p
+   #:load-src
+   #:purge
+   #:select-row
+   #:wax-script
+   #:state
+   #:execute-fn
+   #:dump-fn
+   #:pstep-limit
+   #:pstep-fn
+   #:pabort-fn
+   #:data-sources
+   #:dump
+   #:set-pstep-limit
+   #:pstep
+   #:pabort
+   #:save-state
+   #:load-state
+   #:init-state
+   #:get-state
+   #:add-data-source
+   #:remove-data-source
+   #:load-data-source
+   #:purge-data-source
+   #:select-row-from
+   #:source-filename
+   #:source-data
+   #:set-execute-fn
+   #:init-wax-script
+   #:wax-execute
+   ))

@@ -1,4 +1,4 @@
-;;;; -*- Mode: Common-Lisp; Author: denes.cselovszky@gmail.com -*- 
+;;; -*- Mode: Common-Lisp; Author: denes.cselovszky@gmail.com -*- 
                                                                               ;
 
 (in-package #:wax)
@@ -9,7 +9,7 @@
 ;; Progress window
 
 
-(capi:define-interface progress ()
+#|(capi:define-interface progress ()
   ()
   (:panes
    ;; Pane to contain text output from the working thread.
@@ -44,7 +44,70 @@
    :best-y 400
    :window-styles '(:borderless
                     :shadowed
-                    :movable-by-window-background)))
+                    :movable-by-window-background)))|#
+(capi:define-interface progress ()
+  ()
+  (:panes
+   ;; Pane to contain text output from the working thread.
+   (text-dump
+    capi:editor-pane
+    :accessor           text-dump
+    :flag               'minimal-example
+    :buffer-name        (:initarg buffer-name)
+    :enabled            :read-only
+    :visible-min-width  '(character 80)
+    :visible-min-height '(character 30)
+    :vertical-scroll    t)
+   ;; Progress bar.
+   (progress
+    capi:progress-bar
+    :accessor progress
+    :start 0
+    :end 100)
+   (rest-time
+    capi:title-pane
+    :accessor rest-time
+    :text "")
+   (abort-button
+    capi:push-button
+    :accessor abort-button
+    :text "Megszakítás"
+    :callback-type :interface
+    :callback (:initarg abort-callback))
+   (close-button
+    capi:push-button
+    :accessor close-button
+    :text "Bezárás"
+    :callback-type :interface
+    :callback (:initarg close-callback)
+    :enabled nil)
+   )
+  (:layouts
+   (upper capi:column-layout '(text-dump progress rest-time))
+   (lower capi:row-layout '(abort-button close-button))
+   (window capi:column-layout '(upper lower)))
+  (:default-initargs
+   :title "Feldolgozás"
+   :best-x 735
+   :best-y 400
+   :layout 'window
+   :confirm-destroy-function (lambda (interface)
+                               (capi:button-enabled (close-button interface)))
+#|                                 (if (capi:button-enabled (close-button interface))
+                                   (progn
+                                     (push "T" sig::g)
+                                     t)
+                                   (progn
+                                     (let ((fn (capi:button-press-callback (abort-button interface))))
+                                       (funcall (capi:button-press-callback (abort-button interface))
+                                                interface)
+                                       (push fn sig::g))
+                                     nil)))|#
+   :window-styles '(
+                    ;:borderless
+                    ;:shadowed
+                    ;:movable-by-window-background
+                    )))
 
 
 (defun timestr (secs)
@@ -59,7 +122,7 @@
     (apply #'concatenate 'string (nreverse accum))))
 
 
-(defmacro with-progress ((title abort dumper mover ccount &optional (buffername "temp")) &body body)
+#|(defmacro with-progress ((title abort dumper mover ccount &optional (buffername "temp")) &body body)
   (let ((interface  (gensym))
         (i          (gensym))
         (aborted    (gensym))
@@ -104,27 +167,113 @@
                           (when ,aborted
                             (return-from big-body))))
                    ,@body
-                   (wg-msg "A feldolgozás véget ért."))))
-           (capi:destroy ,interface))))))
+                   (wg-msg "A feldolgozás véget ért.")
+                   )))
+           (capi:destroy ,interface))))))|#
+
+
+(defun switch-buttons (interface)
+  (setf (capi:button-enabled (close-button interface)) t
+        (capi:button-enabled (abort-button interface)) nil))
+
+
+(defmacro with-progress-new ((title obj &key (limit nil) (buffername "temp")) &body body)
+  (let ((interface  (gensym))
+        (i          (gensym))
+        (aborted    (gensym))
+        (start-time (gensym))
+        (count      (gensym)))
+    `(progn
+       (let* ((,aborted   nil)
+              (,interface
+               (make-instance 'progress
+                              :title ,title
+                              :buffer-name ,buffername
+                              :abort-callback #'(lambda (interface)
+                                                  (when (and (not ,aborted)
+                                                             (wg-confirm "Megszakítja a feldolgozást?"))
+                                                    (wg-floating-message "Megszakítás ...")
+                                                    (setf ,aborted t)
+                                                    (switch-buttons interface)
+                                                    ))
+                              :close-callback #'(lambda (interface)
+                                                  (capi:destroy interface))))
+              (,i 0)
+              (,count ,limit)
+              (,start-time (get-internal-real-time)))
+         (unwind-protect
+             (progn
+               (capi:modify-editor-pane-buffer (text-dump ,interface) :contents "")
+               (capi:display ,interface)
+               (block big-body
+                 (setf (pstep-fn ,obj)
+                       #'(lambda (&key (abs nil) (step 1))
+                           (let* ((percent (if (and abs (numberp abs) (<= abs 100))
+                                             abs
+                                             (* 100 (/ (incf ,i step)
+                                                        (or ,count (pstep-limit ,obj))))))
+                                  (current-time (get-internal-real-time))
+                                  (time-spent   (/ (- current-time ,start-time)
+                                                   internal-time-units-per-second))
+                                  (time-left    (max (- (* time-spent (/ 100 percent)) time-spent)
+                                                     0)))
+                             (setf (capi:range-slug-start (progress ,interface)) (round percent))
+                             (setf (capi:title-pane-text (rest-time ,interface))
+                                   (format nil "E ltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
+                                           (timestr (round time-spent))
+                                           (timestr (round time-left))))))
+                       (dump-fn ,obj)
+                       #'(lambda (string &rest args)
+                           (ignore-errors
+                             (let* ((buffer (editor:buffer-from-name ,buffername))
+                                    (point  (editor:buffers-end buffer)))
+                               (editor:insert-string point (apply #'format nil string args))
+                               (capi:scroll (text-dump ,interface) :vertical :move :end))))
+                       (pabort-fn ,obj)
+                       #'(lambda ()
+                           (when ,aborted
+                             (dump ,obj "~%~%A feldolgozás megszakítva, az ablak bezárható.~%")
+                             (return-from big-body)))
+                       (pkill-fn ,obj)
+                       #'(lambda ()
+                           (setf ,aborted t)
+                           (dump ,obj "~%~%A feldolgozás félbeszakadt, az ablak bezárható.~%")
+                           (switch-buttons ,interface))
+                       )
+                 ,@body
+                 (switch-buttons ,interface)
+;                 (setf (capi:button-enabled (close-button ,interface)) t
+;                       (capi:button-enabled (abort-button ,interface)) nil)
+;                 (wg-msg "A feldolgozás véget ért.")))
+                 (dump ,obj "~%~%A feldolgozás befejezõdött, az ablak bezárható.~%")
+                 ))
+;           (capi:destroy ,interface)
+           )))))
 
 
 ;; ----------------------------------------------------------------------
 ;; Main window
 
 
-(defun wg-text-input (label callback text)
-  (make-instance
-   'capi:text-input-pane
-   :title label
-   :text text
-   :callback callback
-   :change-callback callback))
+(defun wg-text-input (callback text &rest rest)
+  (apply #'make-instance
+         (append (list 'capi:text-input-pane
+                       :text text
+                       :callback callback
+                       :change-callback callback)
+                 rest)))
 
 
-(defun wg-file-selector (label message filter filters callback text &key (cancel nil))
+(defun wg-text-input2 (callback text completion-fn)
+  (wg-text-input callback text
+                 :buttons `(:ok nil :completion t :cancel t
+                            :cancel-function ,#'(lambda (pane) (setf (capi:text-input-pane-text pane) text)))
+                 :completion-function completion-fn))
+
+
+(defun wg-file-selector (message filter filters callback text &key (cancel nil))
   (make-instance
    'capi:text-input-pane
-   :title label
    :text text
    :buttons `(:browse-file
               (:message ,message
@@ -138,17 +287,13 @@
                                     (setf (capi:text-input-pane-text pane) "")
                                     (when cancel
                                       (funcall cancel))))
-;   :callback callback
-;   :editing-callback callback
-;   :change-callback callback
-   :text-change-callback callback
-   ))
+   :text-change-callback callback))
 
 
-(defun wg-dir-selector (label message callback text)
+(defun wg-dir-selector (message callback text)
   (make-instance
    'capi:text-input-pane
-   :title label
+;   :title label
    :text text
    :buttons `(:browse-file
               (:message ,message
@@ -164,10 +309,10 @@
    ))
 
 
-(defun wg-options (label callback items item)
+(defun wg-options (callback items item)
   (make-instance
    'capi:option-pane
-   :title label
+;   :title label
    :items items
    :selection (position item items :test #'string=)
    :selection-callback callback))
@@ -181,14 +326,28 @@
    :callback callback))
 
 
-(defun wg-window (title &rest list)
+(defun wg-checkbox (label callback &optional (default nil))
+  (make-instance
+   'capi:check-button
+   :text label
+   :callback-type :element
+   :selection-callback (lambda (element)
+                         (funcall callback (capi:button-selected element)))
+   :retract-callback (lambda (element)
+                       (funcall callback (capi:button-selected element)))
+   :selected default))
+
+
+(defun wg-window (title max-height &rest list)
   (capi:contain
    (make-instance
-    'capi:column-layout
+    'capi:grid-layout
+    :rows (ceiling (/ (length list) 2))
     :description list)
    :best-x '(- (/ :screen-width 2) 200)
    :best-y '(- (/ :screen-height 2) 100)
    :best-width 650
+   :max-height max-height
    :title title))
 
 

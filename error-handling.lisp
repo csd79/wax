@@ -74,11 +74,12 @@
 
 
 ;;; Wrapper macro to add errorhandling to main loop.
-(defmacro with-wax-errorsink (&body body)
+(defmacro with-wax-errorsink (obj &body body)
   `(catch 'sinked
      (handler-bind ((com:com-dispatch-invoke-exception-error
                      #'(lambda (error)
                          (when *errorsink-on*
+                           (pkill ,obj)
                            (dispatch-wg-errordial
                             (com-dispatch-invoke-exception-error-details error)
                             "~a: ~a: ~a" :source :method-name :description)
@@ -86,6 +87,7 @@
                     (com:com-error
                      #'(lambda (error)
                          (when *errorsink-on*
+                           (pkill ,obj)
                            (dispatch-wg-errordial
                             (com-error-details error)
                             "Hiba: hresult: ~a; függvény: ~a" :hresult :fn-name)
@@ -93,6 +95,7 @@
                     (error
                      #'(lambda (error)
                          (when *errorsink-on*
+                           (pkill ,obj)
                            (dispatch-wg-errordial
                             (condition-string-or-type error)
                             "Hiba: ~a" :data)
@@ -100,6 +103,7 @@
                     (condition
                      #'(lambda (condition)
                          (when *errorsink-on*
+                           (pkill ,obj)
                            (dispatch-wg-errordial
                             (condition-string-or-type condition)
                             "Váratlan állapot: ~a" :data)

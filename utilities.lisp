@@ -13,6 +13,20 @@
   (str:ensure-suffix "\\" (uiop:getenv "userprofile")))
 
 
+(defparameter *independent-exe* nil)
+(defparameter *appdir* "wax")
+
+
+(defun appdir (&optional (package-name "WAX"))
+  "Namestring of the directory containing wax."
+  (if (symbol-value (find-symbol "*INDEPENDENT-EXE*" package-name))
+      (namestring (lw:current-pathname))
+      (concatenate 'string (user-homedir)
+                   "common-lisp\\"
+                   (symbol-value (find-symbol "*APPDIR*" package-name))
+                   "\\")))
+
+
 (defun user-tempdir ()
   "Namestring of current user's Windows tempdir."
   (flet ((first-6-chars (string)
@@ -65,26 +79,15 @@
          (rename-file (pathname ,tempname)
                       (pathname ,filename))))))
 
-(defparameter *independent-exe* nil "Modify APPDIR's behaviour.")
-;(defparameter *dev-dir* "c:\\Users\\cselovszkid\\common-lisp\\wax\\" "System dir on dev machine.")
-
-(defun appdir ()
-  "Namestring of the directory containing wax."
-  (if *independent-exe*
-      (namestring (lw:current-pathname))
-;      *dev-dir*))
-      (concatenate 'string (user-homedir) "common-lisp\\wax\\")))
-
-  
 
 ;; ----------------------------------------------------------------------
 ;; History
 
 
 
-(defun appfile (file)
+(defun appfile (file &optional (package-name "WAX"))
   "Namestring of FILE inside wax's directory."
-  (merge-pathnames file (appdir)))
+  (merge-pathnames file (appdir package-name)))
 
 (defun load-forms (file)
   "Load Lisp forms from FILE into a list."
@@ -220,19 +223,25 @@
 
 (defun parse-hudate (string)
   "Convert hungarian short textual date into a list (year month day)."
-  (destructuring-bind (year month day)
-      (multiple-value-bind (full vector)
-          (cl-ppcre:scan-to-strings
-           "^.*(\\d{2,4})[^a-zA-z\\d:]+(\\d{1,2}|[\\p{L}\\p{M}]+)[^a-zA-z\\d:]+(\\d{1,2}).*$" string)
-        (declare (ignore full))
-        (coerce vector 'list))
-    (let* ((year-raw (parse-integer year))
-           (year-ok  (if (< year-raw 100)
-                       (+ 2000 year-raw)
-                       year))
-           (month-ok (or (parse-integer month :junk-allowed t)
-                         (identify-month month))))
-      (list year-ok month-ok (parse-integer day)))))
+  (when (stringp string)
+    (multiple-value-bind (full vector)
+        (cl-ppcre:scan-to-strings
+         "^[^0-9]*(\\d{2,4})[^\\p{L}0-9]*(\\d{1,2}|[\\p{L}\\p{M}]+)[^a-zA-z\\d:]+(\\d{1,2}).*$" string)
+      (declare (ignore full))
+      (when vector
+        (destructuring-bind (year month day)
+            (coerce vector 'list)
+          (let* ((year-raw (parse-integer year))
+                 (year-ok  (if (< year-raw 100)
+                             (+ 2000 year-raw)
+                             year-raw))
+                 (month-ok (or (parse-integer month :junk-allowed t)
+                               (identify-month month)))
+                 (day-ok   (parse-integer day)))
+            (when (and (<= 1900 year-ok 9999)
+                       (<= 1 month-ok 12)
+                       (<= 1 day-ok 31))
+              (list year-ok month-ok day-ok))))))))
 
 (defun hudate->unitime (hudatelist)
   "Convert the list (year month day) to Lisp universal time."
@@ -308,7 +317,6 @@
   "Remova chars from STRING that are illegal in a Windows filename."
   (let ((illegals '(#\< #\> #\: #\" #\/ #\\ #\| #\? #\*
                     #\# #\% #\& #\{ #\} #\$ #\! #\' #\@ #\+ #\` #\=
-                    #\.
                     ))
         (copy     (copy-seq string)))
     (mapc #'(lambda (char) (setf copy (delete char copy :test #'char=))) illegals)
@@ -327,3 +335,23 @@
          (article (if (position (elt clean 0) vowels :test #'char=)
                     "az" "a")))
     (concatenate 'string article " " clean)))
+
+
+;; ----------------------------------------------------------------------
+;; Miscellaneous
+
+
+;;; Construct new pathname based on DIRECTORY and FILE.
+(defun file-in-dir (directory file &key (namestring nil))
+  (let* ((filename (pathname-name file))
+         (filetype (pathname-type file))
+         (new      (make-pathname :name filename :type filetype
+                                  :defaults directory)))
+    (if namestring
+      (namestring new)
+      new)))
+
+
+(defun line (n &optional (char #\-))
+  "Separator line as string."
+  (format nil "~v@{~A~:*~}" n char))

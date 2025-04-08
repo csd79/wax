@@ -1,8 +1,9 @@
 (defsystem "wax"
   :description "Scripting environment for MS Office apps"
-  :author      "Denes Cselovszki <denes.cselovszki@gmail.com>"
-  :version     "0.38"
-  :depends-on  ("ccom" "cref" "achar" "cl-ppcre" "local-time" "str")
+  :author      "Denes Cselovszki <denes.cselovszky@gmail.com>"
+  :version     "0.39"
+;  :depends-on  ("ccom3" "msoffice" "cref" "achar" "cl-ppcre" "local-time" "str") ; leforduljon
+  :depends-on  ("cl-ppcre" "local-time" "str" "achar" "ccom3" "msoffice" "cref") ; menjen unicode szövegek olvasása excelből?
   :serial      t
   :components  ((:file "package")
                 (:file "fli-templates")
