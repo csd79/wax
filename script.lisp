@@ -9,8 +9,7 @@
 
 
 (defparameter *xls-tks-filename*  "TK vezetõk.xlsx")
-;(defparameter *school-year-end*   45900) ; 2025.08.31. Ha a felületen lenne, átírnák hülyeséggel.
-(defparameter *mod-start-default* "2025. január 1.")
+(defparameter *mod-start-default* "2025. szeptember 1.") ;;; Ez a jelen dátum függvényében jeles dátumokra ugorhatna... jan1 sep1
 
 
 ;;; ----------------------------------------------------------------------
@@ -32,8 +31,7 @@
            (not (member (xcref xarray :x) '("4336" "4211" "4214") :test #'string=)))))
 
 (defparameter *doctypes*
-  `(
-    (:name "Kinevezések"
+  `((:name "Kinevezések"
      :dir  "Kinevezések"
      :szk
      ((,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
@@ -96,10 +94,6 @@
     (when template
       (concpath (get-state obj :doctemp-dir)
                 subdir template))))
-      #|      (concatenate 'string
-                   (get-state obj :doctemp-dir) "\\"
-                   subdir "\\"
-                   template))))|#
 
 
 (defun newfile (xarray obj)
@@ -133,10 +127,10 @@
 
 (defun get-fees (xarray)
   (let ((result '())
-        (codes  '(:code :name :sum :start :end :titl)))
+        (codes  '(:code :name :sum :measure :end :titl :cstart)))
     (do-xarows (row r xarray)
-      (push (get-fee-row row '(15 16 17 36 30 39) codes) result)
-      (push (get-fee-row row '(19 20 21 35 31 39) codes) result))
+      (push (get-fee-row row '(15 16 17 36 30 39 43) codes) result)
+      (push (get-fee-row row '(19 20 21 35 31 39 43) codes) result))
     (remove-if #'(lambda (elem)
                    (string= "" (getf elem :code)))
                (remove-duplicates result :test #'equalp))))
@@ -172,6 +166,27 @@
         (when found
           (push found result))))
     (nreverse result)))
+
+
+(defun correct-1125-p (fee obj)
+  "Is starting date = 09.01. of the year indicated by MOD-START?"
+  (let* ((mod-start (parse-hudate (get-state obj :mod-start)))
+         (correct-start (if (>= (second mod-start) 9)
+                          (list (first mod-start) 9 1)
+                          (list (1- (first mod-start)) 9 1))))
+    ;; Ha Kinevezés, a kezdõdátumtól függ,
+    (if (string= (get-state obj :doctype) "Kinevezések")
+      (equal (excel-date (getf fee :cstart)) correct-start)
+      ;; ha nem, mindig korrekt.
+      t)))
+
+
+(defun remove-incorrect-1125 (fees obj)
+  "Remove fee code 1125 when it's starting date is invalid."
+  (remove-if #'(lambda (fee)
+                 (and (string= (getf fee :code) "1125")
+                      (not (correct-1125-p fee obj))))
+             fees))
 
 
 (defmacro vals-fn (binds &body body)
@@ -232,14 +247,12 @@
           (when tk
             (astring-upcase (first (str:words tk))))))
      ,#'(lambda (doc)
-;          (ccom::header doc 1 +wd-header-footer-first-page+)))
           (header doc 1 +wd-header-footer-first-page+)))
 
     ("Székhelye: $………………$^M"
      ,(vals-fn ((a "Vállalat hosszú megnevezése")) :obj obj
         (tks-row obj a "Székhely"))
      ,#'(lambda (doc)
-;          (ccom::footer doc 1 +wd-header-footer-first-page+)))
           (footer doc 1 +wd-header-footer-first-page+)))
 
     ("Törzskönyvi azonosító szám: $………………$^M"
@@ -247,7 +260,6 @@
         (let ((tsz (tks-row obj a "Törzsszám")))
           (when tsz (round tsz))))
      ,#'(lambda (doc)
-;          (ccom::footer doc 1 +wd-header-footer-first-page+)))
           (footer doc 1 +wd-header-footer-first-page+)))
     
     ("$………………$^Mfoglalkoztatott részére"
@@ -330,13 +342,11 @@
                                  (= (parse-number b) (parse-number (xcref row "OM azonosító")))
                                  (= (parse-number c) (parse-number
                                                       (xcref row "A feladatellátási hely sorszáma"))))))))
-;              (wg-msg "Hihihi!")
               (if (and kir-row (not (xarray-zero-index-p kir-row)))
                 (xcref kir-row "A feladatellátási hely megnevezése")
                 (str:unwords (str:words (str:trim a)))))
             ;; SAP-ból véve
             (str:unwords (str:words (str:trim a)))))))
-;    (str:unwords (str:words (str:trim a)))))
 
     (", $cím$^Mvagy^MMunkavégzés"
      ,(vals-fn ((a "Szervezeti egység OM azonosító") (b "Szerv.egység feladat ellát hel")) :obj obj
@@ -359,15 +369,6 @@
                         (xcref kir-row "A feladatellátási hely települése")
                         (xcref kir-row "A feladatellátási hely pontos címe"))
                 "cím"))
-#|              (if kir-row
-                (if (xarray-zero-index-p kir-row)
-                  ;not-found-value ; !!!!!!!!!!!!!!!!!???????????????????!!!!!!!!!!!!!!!!!!!!!!
-                  "cím"
-                  (format nil "~D ~a, ~a"
-                          (round (xcref kir-row "A feladatellátási hely irányítószáma"))
-                          (xcref kir-row "A feladatellátási hely települése")
-                          (xcref kir-row "A feladatellátási hely pontos címe")))
-                "cím"))|#
             ;; Nincs cím
             "cím"))))
     
@@ -433,9 +434,10 @@
 
     (" heti munkaidejére tekintettel – $………………$ alapján az alábbiak szerint állapítom meg.^M"
      ,(vals-fn ((szk "SZK") (bes "Bérrendsz. csop név") (eila "Esélyteremtési illetményrészre")
-                (titl "CÍm")) :fees fees
-        (let ((cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2025jan*)
-              (cref::*codenames* cref::*puetv-megnevezes-2025jan*)
+                (titl "CÍm")) :fees fees :obj obj
+        (let ((fees    (remove-incorrect-1125 fees obj))
+              (cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2025sep*)
+              (cref::*codenames* cref::*puetv-megnevezes-2025sep*)
               (cref::*defined-tvs* (if (string= bes "Gyakornok")
                                      '("1puetv" "2puetv-vhr")
                                      '("1puetv"))))
@@ -444,23 +446,41 @@
                  (text  (cref::convert fees)))
             text))))
 
+    ("napi hatállyal – besorolására$………………$ és"
+     ,(vals-fn ((szk "SZK") (bes "Bérrendsz. csop név") (eila "Esélyteremtési illetményrészre")
+                (titl "CÍm")) :fees fees :obj obj
+        (let ((fees (remove-incorrect-1125 fees obj))
+              (cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2025sep*)
+              (cref::*codenames* cref::*puetv-megnevezes-2025sep*)
+              (cref::*defined-tvs* (if (string= bes "Gyakornok")
+                                     '("1puetv" "2puetv-vhr")
+                                     '("1puetv"))))
+          (let* ((codes (mapcar #'(lambda (fee) (getf fee :code)) fees))
+                 (fees  (cref::fees :codes codes :ps szk :lab bes :eila eila :titl titl)))
+            (if (or (member :ter-illemeles-ped fees)
+                    (member :ter-illemeles-pednoks fees))
+              ", a 2024/2025. tanítási évre vonatkozó teljesítményértékelésének eredményére"
+              "")))))
+   
     (,(format nil "$Havi illetmény:~C………………~CFt^MIlletmény összesen:~C………………~cFt$^M" #\tab #\tab #\tab #\tab)
-     ,(vals-fn ((bd "Belépés dátuma") (hiv "Szerz.vége") (eila "Esélyteremtési illetményrészre")) :fees fees :obj obj
-        (let* ((ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2025jan-sorrend*))
+     ,(vals-fn ((bd "Belépés dátuma") (hiv "Szerz.vége") (eila "Esélyteremtési illetményrészre"))
+        :fees fees :obj obj
+        (let* ((fees    (remove-incorrect-1125 fees obj))
+               (ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2025sep-sorrend*))
                (total   0)
                (digest  (mapcar #'(lambda (fee)
-                                    (destructuring-bind (&key code name sum start end titl) fee
+                                    (destructuring-bind (&key code name sum measure end titl cstart) fee
                                       (declare (ignore name))
                                       (incf total sum)
                                       (append
                                        ;; Ill.e. megnevezés
                                           ;; CREF FORRÁS OBJ-BAN????
-                                       (list (fee-name code eila titl cref::*puetv-b1b2b8b9-illetmenyelemek-2025jan*)
+                                       (list (fee-name code eila titl cref::*puetv-b1b2b8b9-illetmenyelemek-2025sep*)
                                              ;; Összeg
                                              (currency sum))
                                        ;; Megállapítás idõszak kezdete:
                                        ;;   Havi ill. vagy mesterfok: nem kell feltüntetni.
-                                       (cond ((member code '("1P00" "1116") :test #'string=)
+                                       (cond ((member code '("1P00" "1116" "1125") :test #'string=)
                                               nil)
                                              ;; Esélyteremtési: belépés dátuma vagy tanévkezdet (amelyik késõbbi)
                                              ((member code '("1114" "1115") :test #'string=)
@@ -469,8 +489,8 @@
                                                       (hudate->unitime (parse-hudate (get-state obj :mod-start))))
                                                  (excel-date-string bd :words t)
                                                  (get-state obj :mod-start))))
-                                             ;; Egyébként: ill.érvényesség kezdete, vagy ha nincs, belépés dátuma.
-                                             (t (list (excel-date-string (or start bd) :words t))))
+                                             ;; Egyébként: ill.érvényesség kezdete; ha nincs: belépés dátuma.
+                                            (t (list (excel-date-string (or cstart bd) :words t))))
                                        ;; Vége dátum:
                                        ;;   Esélyteremtési:
                                        ;;     ha határozott idõ vége meg van adva és kisebb mint tanév vége:
@@ -482,17 +502,16 @@
                                                                 (school-year-end (parse-hudate (get-state obj :mod-start))))))
                                                 (list (excel-date-string
                                                        (if (empty-cell-p hiv)
-#|                                                         *school-year-end*
-                                                         (min *school-year-end* hiv))|#
                                                          end
                                                          (min end hiv))
                                                        :words t))))
                                              ;; Egyébként, ha nem havi illetmény, és az ill.érv.vége
                                              ;;   meg van adva és nem 9999.12.31:
                                              ;;     ill.érv. vége
-                                             ((and (string/= code "1P00")
-                                                   (not (empty-cell-p end))
-                                                   (/= end 2958465))
+                                             ((and
+                                               (string/= code "1P00")
+                                               (not (empty-cell-p end))
+                                               (/= end 2958465))
                                               (list (excel-date-string end :words t)))
                                              ;; Egyébként: nem kell feltüntetni.
                                              ;; TÖMEGES RÖGZÍTÉSNÉL GYAKRAN HATÁROZOTT IDÕ VÉGE UTÁN DÁTUM KERÜLT RÖGZÍTÉSRE
@@ -501,12 +520,12 @@
                                 ordered))
                (lines  '()))
           (dolist (cookin digest)
-            (destructuring-bind (name sum &optional start end) cookin
+            (destructuring-bind (name sum &optional measure end) cookin
               (push (format nil "~a:~C~a~CFt~C" name #\tab sum #\tab #\return) lines)
-              (when start
+              (when measure
                 (if end
-                  (push (format nil "megállapításának idõszaka: ~a napjától ~a napjáig~C" start end #\return) lines)
-                  (push (format nil "megállapításának idõszaka: ~a napjától~C" start #\return) lines)))))
+                  (push (format nil "megállapításának idõszaka: ~a napjától ~a napjáig~C" measure end #\return) lines)
+                  (push (format nil "megállapításának idõszaka: ~a napjától~C" measure #\return) lines)))))
           (push (format nil "Illetmény összesen:~C~a~CFt" #\tab (currency total) #\tab) lines)
           (apply #'concatenate 'string
                  (nreverse lines)))))
@@ -608,9 +627,9 @@
     ("munkavállaló havi bruttó alapbére $……………… Ft, azaz ………………$ forint."
      ,(vals-fn () :fees fees
         (declare (ignore xarray))
-        (destructuring-bind (&key code name sum start end titl)
+        (destructuring-bind (&key code name sum measure end titl cstart)
             (first fees)
-          (declare (ignore code name start end))
+          (declare (ignore code name measure end cstart))
           (format nil "~a Ft, azaz ~a"
                   (currency sum)
                   (sub->words sum)))))
@@ -685,7 +704,6 @@
             ""
             ", valamint a pedagógusok új életpályájáról szóló 2023. évi LII. törvény (a továbbiakban: Púétv.) végrehajtásáról szóló 401/2023. (VIII. 30.) Korm. rendelet 95. § (1) bekezdése"))))
 
-
     ("A munkavállaló a munkaviszonyból származó igényének érvényesítése érdekében a $Púétv.$ 132. § (1) bekezdése"
      ,(vals-fn ((ho "Heti óra")) :fees fees
         (let* ((sum  (getf (first fees) :sum))
@@ -693,12 +711,6 @@
           (if (< prop 348800)
             "pedagógusok új életpályájáról szóló 2023. évi LII. törvény"
             "Púétv."))))
-
-
-
-
-
-
 
     ("$<><><>$"
      ,(vals-fn ((sztsz "SZTSZ") (date-cl "Jv.kezd.fiz.fokozathoz") (date-bonus  "Jv.kezd.jubileumhoz")
@@ -709,7 +721,6 @@
                                                                (= (parse-number sztsz)
                                                                   (parse-number s))))))))
           (if (and found (not (zerop (xarray-indexed-height found))))
-            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
             (let ((result (make-string-output-stream)))
               ;; Korábbi jogviszonyok
               (do-xarows (row r found)
@@ -727,19 +738,17 @@
                       (apply #'format result " - besoroláshoz: ~a~% - jubileumi jutalomhoz, felmentési idõhöz: ~a~% - végkielégítéshez: ~a~%~%"
                              (mapcar #'(lambda (valid)
                                          (if valid all none))
-                                     (list classification jubilee-bonus severance-pay)))
-                    ))))
+                                     (list classification jubilee-bonus severance-pay)))))))
               ;; Kezdõdátumok
               (apply #'format result "A közalkalmazotti jogviszonyának számított kezdõ idõpontja~% - besoroláshoz: ~a~% - jubileumi jutalomra való jogosultsághoz, felmentési idõhöz: ~a~% - végkielégítés megállapításához: ~a~%"
                      (mapcar #'excel-date-string (list date-cl date-bonus date-sever)))
               ;; Eredmény
               (get-output-stream-string result))
+            "<><><>"))))
 
-
-            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-            "<><><>")
-            ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-          )))
+    ("elfogadom.^M^M$………………$, elektronikus"
+     ,(vals-fn ((a "Vállalat hosszú megnevezése")) :obj obj
+        (tks-row obj a "Helységnév")))
     ))
 
 
@@ -799,7 +808,6 @@
                   (?name (?font headr)) "Times New Roman"
                   (?size (?font headr)) 12)))
         t)))) ; Ez kell? Ugyis visszaadnánk az elõzõ SETF értékét!
-;))))
 
 
 ;;; Személyi kör feldolgozása, minden SZTSZ külön fájlba.
@@ -888,8 +896,9 @@
     (load-state obj)
     ;; Fõablak létrehozása
     (wg-window
-     "Kinevezés-generáló"
+     "Kinevezés generáló 2025.09.01."
      180
+     
      "Dokumentumtípus választása"
      (wg-options
       #'(lambda (text &rest rest)
@@ -899,12 +908,14 @@
                   (getf rec :name))
               *doctypes*)
       (get-state obj :doctype))
+     
      "Tanév/módosítás érvényesség kezdete";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
      (wg-text-input 
       #'(lambda (text &rest rest)
           (declare (ignore rest))
           (setf (get-state obj :mod-start) text))
       (get-state obj :mod-start))
+     
      "SAP lekérdezés eredménye";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
      (wg-file-selector
       "SAP lekérdezés eredménye"
@@ -914,10 +925,6 @@
           (declare (ignore rest))
           (setf (get-state obj :query) text))
       (get-state obj :query))
-
-
-
-
      
      "Elõzõ jogviszonyok (opcionális)";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
      (wg-file-selector
@@ -934,11 +941,6 @@
       :cancel #'(lambda () (setf (get-state obj :prevrels-file) ""
                                  ;*fileno-data* nil
                                  )))
-
-
-
-
-
      
      "Iktatószámok listája (opcionális)";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
      (wg-file-selector
@@ -953,6 +955,7 @@
       (get-state obj :filenum-file)
       :cancel #'(lambda () (setf (get-state obj :filenum-file) ""
                                  *fileno-data* nil)))
+     
      "KIR feladatellátási helyek (opcionális)";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
      (wg-file-selector
       "KIR feladatellátási helyek listája"
@@ -966,6 +969,7 @@
       (get-state obj :kir-file)
       :cancel #'(lambda () (setf (get-state obj :kir-file) ""
                                  *kir-data* nil)))
+     
      "Dokumentumsablonok mappája";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
      (wg-dir-selector
       "Dokumentumsablonok mappája"
@@ -974,6 +978,7 @@
           (setf (get-state obj :doctemp-dir) text
                 (get-state obj :tks-file) (namestring (merge-pathnames *xls-tks-filename* text))))
       (get-state obj :doctemp-dir))
+     
      "Generált dokumentumok mappája";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
      (wg-dir-selector
       "Generált dokumentumok mappája"
@@ -981,6 +986,7 @@
           (declare (ignore rest))
           (setf (get-state obj :results-dir) text))
       (get-state obj :results-dir))
+
      (wg-button
       "Dokumentumok generálása";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       #'(lambda (interface)
