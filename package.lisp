@@ -28,6 +28,9 @@
    #:identify-month
    #:parse-hudate
    #:hudate->unitime
+   #:valid-date-p
+   #:hudate
+   #:hudate-parsable
    #:sub->words
    #:currency
    #:clean-city
