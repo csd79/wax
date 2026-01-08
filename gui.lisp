@@ -182,8 +182,7 @@
         (i          (gensym))
         (aborted    (gensym))
         (start-time (gensym))
-        (count      (gensym))
-        (rollback   (gensym)))
+        (count      (gensym)))
     `(progn
        (let* ((,aborted   nil)
               (,interface
@@ -201,57 +200,55 @@
                                                   (capi:destroy interface))))
               (,i 0)
               (,count ,limit)
-              (,start-time (get-internal-real-time))
-              (,rollback nil))
-         (capi:modify-editor-pane-buffer (text-dump ,interface) :contents "")
-         (capi:display ,interface)
-         (block big-body
-           (setf (pstep-fn ,obj)
-                 #'(lambda (&key (abs nil) (step 1))
-                     (let* ((percent (if (and abs (numberp abs) (<= abs 100))
-                                       abs
-                                       (* 100 (/ (incf ,i step)
-                                                 (or ,count (pstep-limit ,obj))))))
-                            (current-time (get-internal-real-time))
-                            (time-spent   (/ (- current-time ,start-time)
-                                             internal-time-units-per-second))
-                            (time-left    (max (- (* time-spent (/ 100 percent)) time-spent)
-                                               0)))
-                       (setf (capi:range-slug-start (progress ,interface)) (round percent))
-                       (setf (capi:title-pane-text (rest-time ,interface))
-                             (format nil "E ltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
-                                     (timestr (round time-spent))
-                                     (timestr (round time-left))))))
-                 (dump-fn ,obj)
-                 #'(lambda (string &rest args)
-                     (ignore-errors
-                       (let* ((buffer (editor:buffer-from-name ,buffername))
-                              (point  (editor:buffers-end buffer)))
-                         (editor:insert-string point (apply #'format nil string args))
-                         (capi:scroll (text-dump ,interface) :vertical :move :end))))
-                 (pabort-fn ,obj)
-                 #'(lambda ()
-                     (when ,aborted
-                       (dump ,obj "~%~%A feldolgozás megszakítva, az ablak bezárható.~%")
-                       (return-from big-body)))
-                 (pkill-fn ,obj)
-                 #'(lambda ()
-                     (setf ,aborted t)
-                     (dump ,obj "~%~%A feldolgozás félbeszakadt, az ablak bezárható.~%")
-                     (switch-buttons ,interface))
-                 )
-           ,@body
-           (when (error-messages-waiting-p ,obj)
-             (setf ,rollback (capi:get-vertical-scroll-parameters (text-dump ,interface) :max-range))
-             (dump-error-messages ,obj)
-             (purge-error-messages ,obj))
-           (switch-buttons ,interface)
-           (dump ,obj "~2%A feldolgozás befejezõdött, az ablak bezárható.~%")
-           (when ,rollback
-             (capi:execute-with-interface
-              ,interface
-              #'(lambda ()
-                  (capi:scroll (text-dump ,interface) :vertical :move ,rollback)))))))))
+              (,start-time (get-internal-real-time)))
+         (unwind-protect
+             (progn
+               (capi:modify-editor-pane-buffer (text-dump ,interface) :contents "")
+               (capi:display ,interface)
+               (block big-body
+                 (setf (pstep-fn ,obj)
+                       #'(lambda (&key (abs nil) (step 1))
+                           (let* ((percent (if (and abs (numberp abs) (<= abs 100))
+                                             abs
+                                             (* 100 (/ (incf ,i step)
+                                                        (or ,count (pstep-limit ,obj))))))
+                                  (current-time (get-internal-real-time))
+                                  (time-spent   (/ (- current-time ,start-time)
+                                                   internal-time-units-per-second))
+                                  (time-left    (max (- (* time-spent (/ 100 percent)) time-spent)
+                                                     0)))
+                             (setf (capi:range-slug-start (progress ,interface)) (round percent))
+                             (setf (capi:title-pane-text (rest-time ,interface))
+                                   (format nil "E ltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
+                                           (timestr (round time-spent))
+                                           (timestr (round time-left))))))
+                       (dump-fn ,obj)
+                       #'(lambda (string &rest args)
+                           (ignore-errors
+                             (let* ((buffer (editor:buffer-from-name ,buffername))
+                                    (point  (editor:buffers-end buffer)))
+                               (editor:insert-string point (apply #'format nil string args))
+                               (capi:scroll (text-dump ,interface) :vertical :move :end))))
+                       (pabort-fn ,obj)
+                       #'(lambda ()
+                           (when ,aborted
+                             (dump ,obj "~%~%A feldolgozás megszakítva, az ablak bezárható.~%")
+                             (return-from big-body)))
+                       (pkill-fn ,obj)
+                       #'(lambda ()
+                           (setf ,aborted t)
+                           (dump ,obj "~%~%A feldolgozás félbeszakadt, az ablak bezárható.~%")
+                           (switch-buttons ,interface))
+                       )
+                 ,@body
+                 (switch-buttons ,interface)
+;                 (setf (capi:button-enabled (close-button ,interface)) t
+;                       (capi:button-enabled (abort-button ,interface)) nil)
+;                 (wg-msg "A feldolgozás véget ért.")))
+                 (dump ,obj "~%~%A feldolgozás befejezõdött, az ablak bezárható.~%")
+                 ))
+;           (capi:destroy ,interface)
+           )))))
 
 
 ;; ----------------------------------------------------------------------
