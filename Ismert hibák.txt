@@ -1,0 +1,4 @@
+Minden munkamenet két Excel példányt indít a háttérben, amelyek ott maradnak, míg ki nem lépünk a programból. Ha többször elindítjuk a dokumentumok generálását, mindig 2 újabb Excel-példány került a taszklistára. Ajánlot két generálás között kilépni a programból.
+
+
+A program két futtatás között a "state.txt" rejtett fájlban őrzi meg a beviteli mezők tartalmát (dokumentumtípus, mappák stb). Ennek a fájlnak a manuális módosítása hibát eredményezhet!

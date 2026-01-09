@@ -36,21 +36,98 @@
         :fn-name (com::com-error-function-name condition)))
 
 
-;;; For general errors & conditions, give the condition message or type.
-(defun condition-string-or-type (condition)
+#|;;; For general errors & conditions, give the condition message or type.
+(defun condition-string (condition)
   (list :data (typecase condition
                 (string condition)
-                (t (type-of condition)))))
+                (t (type-of condition)))))|#
+
+
+;;; For general errors & conditions, give the condition message or type.
+(defun condition-string (condition)
+  (list :data (typecase condition
+                (string           condition)
+                (arithmetic-error   (format nil "Aritmetikai hiba. Függvény: \"~a\", paraméterek: ~a."
+                                            (arithmetic-error-operation condition)
+                                            (arithmetic-error-operands condition)))
+                (file-error         (format nil "Fájl hiba. Elérési út: ~a."
+                                            (file-error-pathname condition)))
+                (type-error         (format nil "Típushiba. Hibás adat: ~a, kívánt típus: ~a."
+                                            (type-error-datum condition)
+                                            (type-error-expected-type condition)))
+                (unbound-variable   (format nil "Kötetlen változó. Változónév: ~a."
+                                            (cell-error-name condition)))
+                (undefined-function (format nil "Nemdefiniált függvény. Függvénynév: ~a."
+                                            (cell-error-name condition)))
+                (unbound-slot       (format nil "Kötetlen slot. Slot neve: ~a."
+                                            (cell-error-name condition)))
+                (t                  (type-of condition)))))
+
+
 
 
 ;;; Return the current backtrace as a string.
 (defun backtrace->string ()
   (with-output-to-string (out)
-    (dbg:output-backtrace :bug-form :stream out)))
+    (dbg:output-backtrace
+
+     :quick
+;     :brief
+;     :verbose
+;     :bug-form
+
+     :stream out)))
 
 
 ;; ----------------------------------------------------------------------
 ;; Handling errors
+
+
+(define-condition wax-skippable (condition)
+  ((message :accessor message :initarg :message)
+   (throw-point :accessor throw-point :initarg :skip-to)))
+
+
+(defmacro defmessenger (fname ((var) &rest args) ctrl-string &rest params)
+  `(defun ,fname ,args
+     #'(lambda (,var)
+         (format nil ,ctrl-string ,@params))))
+
+
+(defparameter *noskip-classes* '(wax-skippable undefined-function)) ; kludge exception for CCOM-ACCESSORS
+
+
+(defun skippable-handler (messenger skip-to)
+  #'(lambda (condition)
+;      (wg-msg "~a  ~a~%~a" (type-of condition) skip-to condition)
+      (unless (member (type-of condition) *noskip-classes*)
+        (error (make-condition
+                'wax-skippable
+                :message (funcall messenger
+                                  (getf (condition-string condition) :data))
+                :skip-to skip-to)))))
+
+
+(defmacro skippable ((class skip-to messenger) &body body)
+  "Meant to be used inside WITH-WAX-ERRORSINK. If condition of class CLASS happens inside BODY and CLASS is not a member of *NOSKIP-CLASSES*, throw a WAX-SKIPPABLE condition which will be caught by WITH-WAX-ERRORSINK and cause the value of MESSENGER to be added to the progress windows message queue, and then exit to SKIP-TO."
+  `(handler-bind ((,class (skippable-handler ,messenger ,skip-to)))
+     ,@body))
+
+
+#|(defun tc ()
+  (handler-bind ((wax-skippable
+                  #'(lambda (condition)
+                      (print (message condition))
+                      (throw (throw-point condition) nil))))
+    (skippable (condition :fuuk #'(lambda (cnd)
+                                    (format nil "~a hihi ~%" cnd)))
+      (catch 'fuuk
+;        (print (/ 7 0))
+        (print (boogaloo 1 2))
+        (print (/ 7 0))))))|#
+
+
+
 
 
 ;;; Call WF-ERRORDIAL with generated errod message and details.
@@ -97,18 +174,25 @@
                          (when *errorsink-on*
                            (pkill ,obj)
                            (dispatch-wg-errordial
-                            (condition-string-or-type error)
+                            (condition-string error)
                             "Hiba: ~a" :data)
                            (throw 'sinked nil))))
+                    (wax-skippable
+                     #'(lambda (condition)
+                         (queue-error-message obj (message condition))
+                         (throw (throw-point condition) nil)))
                     (condition
                      #'(lambda (condition)
                          (when *errorsink-on*
                            (pkill ,obj)
                            (dispatch-wg-errordial
-                            (condition-string-or-type condition)
+                            (condition-string condition)
                             "Váratlan állapot: ~a" :data)
                            (throw 'sinked nil)))))
        ,@body)))
+
+                           
+
 
 
 ;; ----------------------------------------------------------------------

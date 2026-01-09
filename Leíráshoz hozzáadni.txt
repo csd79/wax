@@ -7,3 +7,10 @@ Emellett mind kinevezések, mind módosítások esetén az illetményelemek list
 
 Tabulátorok
 B2, B8 és B9 személyi körök dokumentumainál az első oldalon lévő szültési név, hely és idő, valamint anya neve sorok értékei, valamint minden dokumentumban a munkakör, munkavégzés helye, heti munkaidő és FEOR-szám sorok (csak a fekete színnel írt sorok) értékei előtt tabulátor található. Ezeknek a soroknak az értékeit igény esetén egymás alá rendezhetjük. Csak arra kell ügyelni hogy mindig csak 1 db. tabulátor karakter válassza el az értéket a sor elejétől.
+
+
+
+
+Lekérdezés
+A neve "...kinevezésmódosításhoz++". De minden iratfajtához ez használatos.
+Esetleg nevezzük át "...kinev/kinevmod++"-ra, hogy egyértelműbb legyen?
