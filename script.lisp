@@ -1,4 +1,4 @@
-;;;; -*- Mode: Common-Lisp; Author: denes.cselovszky@gmail.com -*- 
+;;; -*- Mode: Common-Lisp; Author: denes.cselovszky@gmail.com -*- 
                                                                               ;
 
 (in-package #:wax)
@@ -35,28 +35,32 @@
      :dir  "Kinevezések"
      :szk
      (
-#|      (,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
-      (,(szk-fn "B8") "B8" "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
-      (,(szk-fn "B9") "B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")|#
-      (,(b1-noks-fn)  "B1" "Munkaszerz._noks munkakör_munkavállaló.docx")
-      (,(b1-kiseg-fn) "B1" "Munkaszerz._gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))
+;      (,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
+;      (,(szk-fn "B8") "B8" "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
+      (,(szk-fn "B9") "B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
+;      (,(b1-noks-fn)  "B1" "Munkaszerz._noks munkakör_munkavállaló.docx")
+;      (,(b1-kiseg-fn) "B1" "Munkaszerz._gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")
+      ))
 
-#|    (:name "Egyoldalú kinevezésmódosítások"
+    (:name "Egyoldalú kinevezésmódosítások"
      :dir  "Egyoldalú kinevezésmódosítások"
      :szk
-     ((,(szk-fn "B2") "B2" "Kinevmód_egyoldalú_pedagógus.docx")
-      (,(szk-fn "B8") "B8" "Kinevmód_egyoldalú_ped. szakkép. noks.docx")
-      (,(szk-fn "B9") "B9" "Kinevmód_egyoldalú_nem ped. szakkép. noks.docx")))|#
+     (
+;      (,(szk-fn "B2") "B2" "Kinevmód_egyoldalú_pedagógus.docx")
+;      (,(szk-fn "B8") "B8" "Kinevmód_egyoldalú_ped. szakkép. noks.docx")
+      (,(szk-fn "B9") "B9" "Kinevmód_egyoldalú_nem ped. szakkép. noks.docx")
+     ))
 
     (:name "Kétoldalú kinevezésmódosítások"
      :dir  "Kétoldalú kinevezésmódosítások"
      :szk
      (
-#|      (,(szk-fn "B2") "B2" "Kinevmód_kétoldalú_pedagógus.docx")
-      (,(szk-fn "B8") "B8" "Kinevmód_kétoldalú_ped. szakkép. noks.docx")
-      (,(szk-fn "B9") "B9" "Kinevmód_kétoldalú_nem ped. szakkép. noks.docx")|#
-      (,(b1-noks-fn)  "B1" "Munkaszerz.mód_noks munkakör_munkavállaló.docx")
-      (,(b1-kiseg-fn) "B1" "Munkaszerz.mód_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))))
+;      (,(szk-fn "B2") "B2" "Kinevmód_kétoldalú_pedagógus.docx")
+;      (,(szk-fn "B8") "B8" "Kinevmód_kétoldalú_ped. szakkép. noks.docx")
+      (,(szk-fn "B9") "B9" "Kinevmód_kétoldalú_nem ped. szakkép. noks.docx")
+;      (,(b1-noks-fn)  "B1" "Munkaszerz.mód_noks munkakör_munkavállaló.docx")
+;      (,(b1-kiseg-fn) "B1" "Munkaszerz.mód_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")
+      ))))
 
 
 ;;; ----------------------------------------------------------------------
@@ -898,7 +902,7 @@
     (load-state obj)
     ;; Fõablak létrehozása
     (wg-window
-     "Kinevezés generáló köznevelési dolgozók 2026.01.01-i kötelezõ béremeléséhez"
+     "Kinevezés generáló nem PedNOKS foglalkoztatottak 2026.01.01-i kötelezõ béremeléséhez"
      180
      
      "Dokumentumtípus választása"

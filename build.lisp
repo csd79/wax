@@ -8,7 +8,7 @@
 (in-package "WAX")
 (setf *independent-exe* t)
 (lw:deliver 'start
-    "c:\\Users\\cselovszkid\\common-lisp\\wax\\kinevgen_v0.40a.exe"
+    "c:\\Users\\cselovszkid\\common-lisp\\wax\\kinevgen_v0.40b.exe"
 ;    "c:\\Users\\csd79\\common-lisp\\wax\\kinevgen_v0.40.exe"
     5
     :interface :capi
