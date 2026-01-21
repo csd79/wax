@@ -34,10 +34,9 @@
         (loaded-p obj) nil))
 
 (defmethod select-row ((obj data-source) selector-fn)
-  (when (data obj)
-    (if (loaded-p obj)
-      (xaselect (data obj) selector-fn)
-      (error "Data source ~a not loaded." (filename obj)))))
+  (if (loaded-p obj)
+    (xaselect (data obj) selector-fn)
+    (error "Data source ~a not loaded." (filename obj))))
 
 
 ;; ======================================================================
@@ -64,9 +63,6 @@
     :accessor pkill-fn)
    (data-sources
     :accessor data-sources
-    :initform '())
-   (messages
-    :accessor messages
     :initform '()))
   (:documentation "Wax script environment."))
 
@@ -154,27 +150,6 @@
 
 (defmethod source-data ((obj wax-script) key)
   (data (getf (data-sources obj) key)))
-
-
-;; ----------------------------------------------------------------------
-;; Error messages
-
-
-(defmethod queue-error-message ((obj wax-script) string)
-  (setf (messages obj) (cons string (messages obj))))
-
-(defmethod error-messages-waiting-p ((obj wax-script))
-  (not (zerop (length (messages obj)))))
-
-(defmethod dump-error-messages ((obj wax-script))
-  (let ((line (line 70 #\*)))
-    (dump obj "~3%~a~%HIBÁK RÉSZLETEZÉSE:~%~a~2%" line line))
-  (dolist (message (reverse (messages obj)))
-    (dump obj message))
-  (dump obj "~3%"))
-
-(defmethod purge-error-messages ((obj wax-script))
-  (setf (messages obj) '()))
 
 
 ;; ----------------------------------------------------------------------

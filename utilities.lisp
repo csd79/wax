@@ -17,10 +17,8 @@
 (defparameter *appdir* "wax")
 
 
-;(defun appdir (&optional (package-name "WAX"))
-(defun appdir (&optional (package-name (package-name *package*)))
+(defun appdir (&optional (package-name "WAX"))
   "Namestring of the directory containing wax."
-;  (wg-msg "~a" *package*)
   (if (symbol-value (find-symbol "*INDEPENDENT-EXE*" package-name))
       (namestring (lw:current-pathname))
       (concatenate 'string (user-homedir)
@@ -250,24 +248,6 @@
   (apply #'encode-universal-time
          0 0 0 (reverse hudatelist)))
 
-(defun valid-date-p (year month day)
-  "T if date describes an actual day in spacetime."
-  (when (ignore-errors (encode-universal-time 1 0 0 day month year)) t))
-
-(defun well-formed-hudate-p (list)
-  (and (every #'integerp list)
-       (>= (first list) 1900)
-       (apply #'valid-date-p list)))
-  
-(deftype hudate ()
-  `(and list (not null) (satisfies well-formed-hudate-p)))
-
-(defun hudate-parsable-p (str)
-  (typep (parse-hudate str) 'hudate))
-
-(deftype hudate-parsable ()
-  `(and string (satisfies hudate-parsable-p)))
-
 
 ;; ----------------------------------------------------------------------
 ;; Currency
@@ -342,12 +322,11 @@
     (mapc #'(lambda (char) (setf copy (delete char copy :test #'char=))) illegals)
     copy))
 
-(defun clean-name (string &key (capitalize t))
+(defun clean-name (string)
   "STRING capitalized, with no leading, trailing or double spaces."
-  (let ((spaced (str:trim (str:unwords (str:words string)))))
-    (if capitalize
-      (astring-capitalize spaced)
-      spaced)))
+  (astring-capitalize
+   (str:trim
+    (str:unwords (str:words string)))))
 
 (defun add-article (word)
   "Ensure proper hungarian article before WORD."

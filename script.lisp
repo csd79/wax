@@ -1,4 +1,4 @@
-;;;; -*- Mode: Common-Lisp; Author: denes.cselovszky@gmail.com -*- 
+;;; -*- Mode: Common-Lisp; Author: denes.cselovszky@gmail.com -*- 
                                                                               ;
 
 (in-package #:wax)
@@ -9,7 +9,7 @@
 
 
 (defparameter *xls-tks-filename*  "TK vezetõk.xlsx")
-(defparameter *mod-start-default* "2025. szeptember 1.") ;;; Ez a jelen dátum függvényében jeles dátumokra ugorhatna... jan1 sep1
+(defparameter *mod-start-default* "2026. január 1.") ;;; Ez a jelen dátum függvényében jeles dátumokra ugorhatna... jan1 sep1
 
 
 ;;; ----------------------------------------------------------------------
@@ -34,27 +34,33 @@
   `((:name "Kinevezések"
      :dir  "Kinevezések"
      :szk
-     ((,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
+     (
+      (,(szk-fn "B2") "B2" "Pedagógus_kinevezési okmány.docx")
       (,(szk-fn "B8") "B8" "Ped szakkép_noks_Púétv_kinevezési okmány.docx")
-      (,(szk-fn "B9") "B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
-      (,(b1-noks-fn)  "B1" "Munkaszerz._noks munkakör_munkavállaló.docx")
-      (,(b1-kiseg-fn) "B1" "Munkaszerz._gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))
+;      (,(szk-fn "B9") "B9" "Nem ped szakkép_noks_Púétv_kinevezési okmány.docx")
+;      (,(b1-noks-fn)  "B1" "Munkaszerz._noks munkakör_munkavállaló.docx")
+;      (,(b1-kiseg-fn) "B1" "Munkaszerz._gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")
+      ))
 
     (:name "Egyoldalú kinevezésmódosítások"
      :dir  "Egyoldalú kinevezésmódosítások"
      :szk
-     ((,(szk-fn "B2") "B2" "Kinevmód_egyoldalú_pedagógus.docx")
+     (
+      (,(szk-fn "B2") "B2" "Kinevmód_egyoldalú_pedagógus.docx")
       (,(szk-fn "B8") "B8" "Kinevmód_egyoldalú_ped. szakkép. noks.docx")
-      (,(szk-fn "B9") "B9" "Kinevmód_egyoldalú_nem ped. szakkép. noks.docx")))
+;      (,(szk-fn "B9") "B9" "Kinevmód_egyoldalú_nem ped. szakkép. noks.docx")
+     ))
 
     (:name "Kétoldalú kinevezésmódosítások"
      :dir  "Kétoldalú kinevezésmódosítások"
      :szk
-     ((,(szk-fn "B2") "B2" "Kinevmód_kétoldalú_pedagógus.docx")
+     (
+      (,(szk-fn "B2") "B2" "Kinevmód_kétoldalú_pedagógus.docx")
       (,(szk-fn "B8") "B8" "Kinevmód_kétoldalú_ped. szakkép. noks.docx")
-      (,(szk-fn "B9") "B9" "Kinevmód_kétoldalú_nem ped. szakkép. noks.docx")
-      (,(b1-noks-fn)  "B1" "Munkaszerz.mód_noks munkakör_munkavállaló.docx")
-      (,(b1-kiseg-fn) "B1" "Munkaszerz.mód_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")))))
+;      (,(szk-fn "B9") "B9" "Kinevmód_kétoldalú_nem ped. szakkép. noks.docx")
+;      (,(b1-noks-fn)  "B1" "Munkaszerz.mód_noks munkakör_munkavállaló.docx")
+;      (,(b1-kiseg-fn) "B1" "Munkaszerz.mód_gazd., ügyv., mûsz.,kiseg.munkakör_munkavállaló.docx")
+      ))))
 
 
 ;;; ----------------------------------------------------------------------
@@ -189,84 +195,24 @@
              fees))
 
 
-#|(defun skip-messenger (error xarray)
-  #'(lambda ()
-      (format nil "...hibaüzenet...")
-      )
-  )|#
-
-
-#|(defun exit-doc (message)
-  (error (make-condition
-          'wax-skippable
-          :message message
-          :skip-to 'doc-exit)))|#
-
-
-#|(defun vals-error (xarray cols)
-  #'(lambda (error)
-      (format nil "Hiba érték beillesztésénél: ~a, ~a, ~a, ~a, oszlop(ok): ~a: ~a~2%"
-              (str:replace-first "Tankerületi Központ" "TK" (xaref xarray 0 :a))
-              (xaref xarray 0 :b)
-              (xaref xarray 0 :c)
-              (xaref xarray 0 :ag)
-              cols
-              error)))|#
-
-#|(defun vals-error-msg (xarray cols error)
-  (format nil "Hiba érték beillesztésénél: ~a, ~a, ~a, ~a, oszlop(ok): ~a: ~a~2%"
-                        (str:replace-first "Tankerületi Központ" "TK" (xaref xarray 0 :a))
-                        (xaref xarray 0 :b)
-                        (xaref xarray 0 :c)
-                        (xaref xarray 0 :ag)
-                        cols
-                        error))|#
-
-
-(defmessenger vals-error ((error) field row cols fees obj)
-;  "~a:~%   SZEMÉLY: ~a, ~a~%   TK: ~a~%   INTÉZMÉNY: ~a~%   SZEMÉLYI KÖR: ~a~%   ÉRINTETT OSZLOP(OK):~%~{~{      \"~a\" = \"~a\"~}~%~}~a   HIBAÜZENET: ~a~%~a~3%"
-  "~a:~%   SZEMÉLY: ~a, ~a~%   TK: ~a~%   INTÉZMÉNY: ~a~%   SZEMÉLYI KÖR: ~a~%   ÉRINTETT OSZLOP(OK):~%~{~{      \"~a\" = \"~a\"~}~%~}~a   HIBAÜZENET: ~a~%~a~3%"
-  (if (string/= field "")
-    (format nil "Hiba a \"~a\" mezõ kitöltése közben" field)
-    "Hiba egy mezõ kitöltése közben")                           ; field
-  (str:capitalize (xcref row :c))                               ; name
-  (xcref row :b)                                                ; sztsz
-  (str:replace-first "Tankerületi Központ" "TK" (xcref row :a)) ; TK
-  (xcref row :z)                                                ; institute
-  (xcref row :ag)                                               ; group
-  (mapcar #'(lambda (col) (list col (xcref row col))) cols)
-  (if (or fees obj)
-    (format nil "   EGYÉB LEHETSÉGES OK: ~a~a~a~%"
-            (if fees "bérelemek" "")
-            (if (and fees obj) ", " "")
-            (if obj "iktatószám táblázat, TK adatok, KIR adatok, GUI dátum, jogviszony beszámítás"))
-    "")
-  error
-  (backtrace->string)
-  )
-
-
 (defmacro vals-fn (binds &body body)
   (let ((clauses   '())
         (slim-body (remove nil ; Why is this needed?
-                           (remove-pairs body (list :fees :obj :field))))
-        (fees      (ignore-errors (getf body :fees))) ; IGNORE-ERRORS shouldn't be needed here, GETF
-        (obj       (ignore-errors (getf body :obj)))  ;   return NIL when value is not in plist
-        (field     (ignore-errors (getf body :field))))
-    ;; Create a list of LET-clauses for every column in BINDS
+                           (remove-pairs body (list :fees :obj))))
+        (fees      (ignore-errors (getf body :fees)))
+        (obj       (ignore-errors (getf body :obj))))
     (dolist (pair binds)
       (destructuring-bind (&optional symbol column)
           pair
         (when (and symbol column)
-          (push (list symbol `(xcref row ,column)) clauses))))
-    ;; When prescribed, add FEES to CLAUSES
-    (when fees (push (list fees '(get-fees row)) clauses))
-    ;; When prescribed, add OBJ to CLAUSES
-    (when obj  (push (list obj 'obj) clauses))
-    `(lambda (row obj)
-       (skippable (condition 'doc-exit (vals-error ,(or field "") row ',(mapcar #'second binds) ,(when fees t) ,(when obj t)))
-         (let ,clauses
-           ,@slim-body)))))
+          (push (list symbol `(xcref xarray ,column)) clauses))))
+    (when fees
+      (push (list fees '(get-fees xarray)) clauses))
+    (when obj
+      (push (list obj 'obj) clauses))
+    `(lambda (xarray obj)
+       (let ,clauses
+         ,@slim-body))))
 
 
 ;;; ----------------------------------------------------------------------
@@ -345,7 +291,7 @@
           "és 40. § (1)-(3) bekezdése ")))
 
     ("Önt $………………$ napjától"
-     ,(vals-fn ((a "Belépés dátuma")) :field "kinevezés/módosítás kezdete"
+     ,(vals-fn ((a "Belépés dátuma"))
         (excel-date-string a :words t)))
     
     ("napjától $………………$ Tankerületi Központ"
@@ -364,7 +310,7 @@
                   (if (empty-cell-p b)
                     "………………"
                     (excel-date-string b :words t))))))
-
+    
     ("$^MA …-jogszabály-… alapján próbaidõ nem köthetõ ki.^M^M$"
      ,(vals-fn ((szk "SZK") (bd "Belépés dátuma") (pv "Próbaidõ  vége"))
         (let* ((pv-str (if (empty-cell-p pv)
@@ -381,7 +327,7 @@
             (if (empty-cell-p pv)
               "^MA …-jogszabály-… alapján próbaidõ nem köthetõ ki.^M^M"
               bx-prob)))))
-
+    
     (,(format nil "unkaköre:~C$………………$^M" #\tab)
      ,(vals-fn ((a :y))
         (str:unwords (str:words
@@ -494,10 +440,14 @@
 
     (" heti munkaidejére tekintettel – $………………$ alapján az alábbiak szerint állapítom meg.^M"
      ,(vals-fn ((szk "SZK") (bes "Bérrendsz. csop név") (eila "Esélyteremtési illetményrészre")
-                (titl "CÍm")) :fees fees :obj obj :field "jogszabályi hivatkozás"
-        (let ((fees    (remove-incorrect-1125 fees obj))
-              (cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2025sep*)
-              (cref::*codenames* cref::*puetv-megnevezes-2025sep*)
+                (titl "CÍm")) :fees fees :obj obj
+        (let (;(fees    (remove-incorrect-1125 fees obj)) ; Erre ezért volt szükség, mert aki nem 9.1-én kezdett,
+                                                          ; az nem kaphatott. Kérdés hogy a késõbbiekben kell-e majd
+                                                          ; ez. ha igen, akkor kéne valami általánosabb mechanizmus
+                                                          ; a FEED extraktorba, aminek bérelemenként meg lehet
+                                                          ; adni érvényességi szûrõfeltételt.
+              (cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2026jan*)
+              (cref::*codenames* cref::*puetv-megnevezes-2026jan*)
               (cref::*defined-tvs* (if (string= bes "Gyakornok")
                                      '("1puetv" "2puetv-vhr")
                                      '("1puetv"))))
@@ -509,9 +459,9 @@
     ("napi hatállyal – besorolására$………………$ és"
      ,(vals-fn ((szk "SZK") (bes "Bérrendsz. csop név") (eila "Esélyteremtési illetményrészre")
                 (titl "CÍm")) :fees fees :obj obj
-        (let ((fees (remove-incorrect-1125 fees obj))
-              (cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2025sep*)
-              (cref::*codenames* cref::*puetv-megnevezes-2025sep*)
+        (let (;(fees (remove-incorrect-1125 fees obj))
+              (cref::*coderefs*  cref::*puetv-b1b2b8b9-illetmenyelemek-2026jan*)
+              (cref::*codenames* cref::*puetv-megnevezes-2026jan*)
               (cref::*defined-tvs* (if (string= bes "Gyakornok")
                                      '("1puetv" "2puetv-vhr")
                                      '("1puetv"))))
@@ -525,8 +475,8 @@
     (,(format nil "$Havi illetmény:~C………………~CFt^MIlletmény összesen:~C………………~cFt$^M" #\tab #\tab #\tab #\tab)
      ,(vals-fn ((bd "Belépés dátuma") (hiv "Szerz.vége") (eila "Esélyteremtési illetményrészre"))
         :fees fees :obj obj
-        (let* ((fees    (remove-incorrect-1125 fees obj))
-               (ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2025sep-sorrend*))
+        (let* (;(fees    (remove-incorrect-1125 fees obj))
+               (ordered (sort-fees fees cref::*puetv-b1b2b8b9-illetmenyelemek-2026jan-sorrend*))
                (total   0)
                (digest  (mapcar #'(lambda (fee)
                                     (destructuring-bind (&key code name sum measure end titl cstart) fee
@@ -535,7 +485,7 @@
                                       (append
                                        ;; Ill.e. megnevezés
                                           ;; CREF FORRÁS OBJ-BAN????
-                                       (list (fee-name code eila titl cref::*puetv-b1b2b8b9-illetmenyelemek-2025sep*)
+                                       (list (fee-name code eila titl cref::*puetv-b1b2b8b9-illetmenyelemek-2026jan*)
                                              ;; Összeg
                                              (currency sum))
                                        ;; Megállapítás idõszak kezdete:
@@ -579,7 +529,6 @@
                                              (t nil)))))
                                 ordered))
                (lines  '()))
-;          (wg-msg "~a" ordered)
           (dolist (cookin digest)
             (destructuring-bind (name sum &optional measure end) cookin
               (push (format nil "~a:~C~a~CFt~C" name #\tab sum #\tab #\return) lines)
@@ -661,10 +610,10 @@
      ,(vals-fn ((a "Kinevezés/szerzõdés jellege")
                 (c "Hely.dolg.neve.") (d "Szerz.vége"))
         (cond
-         ;; Határozatlan ideju kinevezés/szerzõdés
+         ;; Határozatlan idejû kinevezés/szerzõdés
          ((member a '("Határozatlan id.kine" "Hatlan. ideju MT sz.") :test #'string=)
           "határozatlan idejû")
-         ;; Határozott ideju helyettesítõ
+         ;; Határozott idejû helyettesítõ
          ((notany #'empty-cell-p (list c d))
           (format nil "~a tartósan távollévõ helyettesítése céljából határozott ideig, várhatóan ~a napjáig tartó"
                   ;; Helyettesített dolgozó
@@ -673,7 +622,7 @@
                     "………………")
                   ;; Szerzõdés vége
                   (excel-date-string d :words t)))
-         ;; Határozott ideju nem-helyettesítõ
+         ;; Határozott idejû nem-helyettesítõ
          ((not (empty-cell-p d))
           (format nil "határozott ideig, ~a napjáig tartó"
                   (excel-date-string d :words t)))
@@ -695,7 +644,7 @@
                   (currency sum)
                   (sub->words sum)))))
 
-    (,(format nil "^M~C$………………$, 2025" #\tab)
+    (,(format nil "^M~C$………………$, 2026" #\tab)   ;;;        depending on year?!?!?!?!?!?!?!?!?!?!?!?!
      ,(vals-fn ((a "Vállalat hosszú megnevezése")) :obj obj
         (tks-row obj a "Helységnév")))
 
@@ -810,6 +759,10 @@
     ("elfogadom.^M^M$………………$, elektronikus"
      ,(vals-fn ((a "Vállalat hosszú megnevezése")) :obj obj
         (tks-row obj a "Helységnév")))
+
+#|    (,(format nil "~C$………………$~C………………^M~Ctankerületi igazgató" #\tab #\tab #\tab)
+     ,(vals-fn ((a "Vállalat hosszú megnevezése")) :obj obj
+        (tks-row obj a "Tk ig")))|#
     ))
 
 
@@ -825,25 +778,11 @@
     (values clean start (1- end))))
 
 
-#|(defun generate-new-val (val-fn xarray obj)
-  (handler-bind ((error #'(lambda (error)
-                            (when *errorsink-on*
-                              (pkill obj)
-                              (dispatch-wg-errordial
-                               (com-dispatch-invoke-exception-error-details error)
-                               "~a: ~a: ~a" :source :method-name :description)
-                              (throw 'sinked nil))
-                            )
-                        ))
-    (funcall val-fn xarray obj)))|#
-
-
 (defun fill-template (current xarray obj)
   (dolist (desc *t2*)
     (destructuring-bind (temp val-fn &optional range-fn)
         desc
       (let ((new-value (funcall val-fn xarray obj)))
-;      (let ((new-value (generate-new-val val-fn xarray obj)))
         (when new-value
           (multiple-value-bind (clean start-offset end-offset)
               (text-template-target temp)
@@ -863,27 +802,26 @@
   (let ((doctemp (doctemplate xarray obj)))
     (when doctemp
       (with-document (:doc doc :app word :open doctemp :read-only nil :close t :save t)
-        (catch 'doc-exit
-          (!saveas2 doc filename)
-          ;; Adatok beillesztése táblázatból
-          (fill-template doc xarray obj)
-          ;; Formázások
-          (cclet* ((sect-trg (?last (?sections doc)))
-                   (pri-head (!item (?headers sect-trg) +wd-header-footer-primary+))
-                   (pg-nums  (?pagenumbers pri-head))
-                   (pg-setup (?pagesetup sect-trg)))
-            (setf (?text (?range pri-head)) "")                ; Meglévõ elsõdleges fejléc szövegének törlése
-            (!add pg-nums +wd-align-page-number-center+ nil)   ; Oldalszámozás középre
-            (setf (?restartnumberingatsection pg-nums) t       ; Oldalszámozás újrakezdése szakaszonként
-                  (?startingnumber pg-nums) 1                  ; Oldalszámozás kezdése 1-tõl (elsõ o. beleszámítva)
-                  (?differentfirstpageheaderfooter pg-setup) t ; Elsõ oldalon eltérõ fejléc/lábléc
-                  (?mirrormargins pg-setup) t)                  ; Tükörmargók
-            (cclet* ((head  (!item (?headers sect-trg) +wd-header-footer-primary+))
-                     (headr (?range head)))
-              (setf (?alignment (?paragraphformat headr)) +wd-align-paragraph-center+
-                    (?name (?font headr)) "Times New Roman"
-                    (?size (?font headr)) 12)))
-          t))))) ; Ez kell? Ugyis visszaadnánk az elõzõ SETF értékét!
+        (!saveas2 doc filename)
+        ;; Adatok beillesztése táblázatból
+        (fill-template doc xarray obj)
+        ;; Formázások
+        (cclet* ((sect-trg (?last (?sections doc)))
+                 (pri-head (!item (?headers sect-trg) +wd-header-footer-primary+))
+                 (pg-nums  (?pagenumbers pri-head))
+                 (pg-setup (?pagesetup sect-trg)))
+          (setf (?text (?range pri-head)) "")                ; Meglévõ elsõdleges fejléc szövegének törlése
+          (!add pg-nums +wd-align-page-number-center+ nil)   ; Oldalszámozás középre
+          (setf (?restartnumberingatsection pg-nums) t       ; Oldalszámozás újrakezdése szakaszonként
+                (?startingnumber pg-nums) 1                  ; Oldalszámozás kezdése 1-tõl (elsõ o. beleszámítva)
+                (?differentfirstpageheaderfooter pg-setup) t ; Elsõ oldalon eltérõ fejléc/lábléc
+                (?mirrormargins pg-setup) t)                  ; Tükörmargók
+          (cclet* ((head  (!item (?headers sect-trg) +wd-header-footer-primary+))
+                   (headr (?range head)))
+            (setf (?alignment (?paragraphformat headr)) +wd-align-paragraph-center+
+                  (?name (?font headr)) "Times New Roman"
+                  (?size (?font headr)) 12)))
+        t)))) ; Ez kell? Ugyis visszaadnánk az elõzõ SETF értékét!
 
 
 ;;; Személyi kör feldolgozása, minden SZTSZ külön fájlba.
@@ -905,15 +843,6 @@
       (pabort obj))))
 
 
-#|(defun proc-error ()
-  #'(lambda (error) (format nil "Hiba a feldolgozás során: ~a~%" error)))|#
-
-(defmessenger proc-error ((err))
-  "FELDOLGOZÁS: ~a~%"
-  err)
-;  (getf (condition-string err) :data))
-
-
 (defun process (obj)
   (cclet* ((word (com:create-object :progid "Word.Application"))
            (tk-head "Vállalat hosszú megnevezése")
@@ -921,28 +850,24 @@
                      (length (xauniques (read-xarray (used-range ws-query)) "SZTSZ")))))
     ;; Progress bar
     (with-progress-new ("Dokumentumok generálása" obj :limit length)
-      (catch 'proc-exit
-        ;; Adatforrások betöltése
-        (dolist (key '(:main :tks :filenum :kir :prevrels))
-          (let ((filename (source-filename obj key)))
-            (when (string/= filename "")
-              (dump obj "Adatforrás betöltése: ~a~%" filename)
-              (load-data-source obj key))))
-        (dump obj "~%~%")
-        (skippable (condition 'proc-exit (proc-error))
-          ;; Iteráció TK-kon.
-          (xadouniques  (tk (source-data obj :main) tk-head)
-            (dump obj "~%~a~%~a~%~a~%~%" (line 70 #\=) (astring-upcase tk) (line 70 #\=))
-            ;; Iteráció személyi körökön.
-            (let ((tk-only (xaselect (source-data obj :main) #'(lambda (row) (astring= (xcref row tk-head) tk)))))
-              (xadouniques (ps tk-only "SZK")
-                (dump obj "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
-                ;; Személyi kör sorok.
-                (let ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps)))))
-                  (process-ps obj tk-ps-only ps word)))))
-          )
-        ))
-      (!quit word)))
+      ;; Adatforrások betöltése
+      (dolist (key '(:main :tks :filenum :kir :prevrels))
+        (let ((filename (source-filename obj key)))
+          (when (string/= filename "")
+            (dump obj "Adatforrás betöltése: ~a~%" filename)
+            (load-data-source obj key))))
+      (dump obj "~%~%")
+      ;; Iteráció TK-kon.
+      (xadouniques  (tk (source-data obj :main) tk-head)
+        (dump obj "~%~a~%~a~%~a~%~%" (line 70 #\=) (astring-upcase tk) (line 70 #\=))
+        ;; Iteráció személyi körökön.
+        (let ((tk-only (xaselect (source-data obj :main) #'(lambda (row) (astring= (xcref row tk-head) tk)))))
+          (xadouniques (ps tk-only "SZK")
+            (dump obj "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
+            ;; Személyi kör sorok.
+            (let ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps)))))
+              (process-ps obj tk-ps-only ps word))))))
+    (!quit word)))
 
 
 ;;; ----------------------------------------------------------------------
@@ -985,7 +910,7 @@
     (load-state obj)
     ;; Fõablak létrehozása
     (wg-window
-     "Kinevezés generáló 2025.09.01."
+     "Kinevezés generáló pedagógusok, pedagógus végzettségû NOKS-osok 2026.01.01-i kötelezõ béremeléséhez"
      180
      
      "Dokumentumtípus választása"
@@ -1097,7 +1022,7 @@
                                            (merge-pathnames *xls-tks-filename*
                                                             (get-state obj :doctemp-dir))))
                 ;; Szkript végrehajtása.
-                (wax-execute obj :errorsink-on nil) ;t)
+                (wax-execute obj :errorsink-on t)
                 ;; Adatforrások eldobása.
                 (dolist (key '(:main :tks :filenum :kir :prevrels))
                   (remove-data-source obj key))))))))))
