@@ -34,9 +34,10 @@
         (loaded-p obj) nil))
 
 (defmethod select-row ((obj data-source) selector-fn)
-  (if (loaded-p obj)
-    (xaselect (data obj) selector-fn)
-    (error "Data source ~a not loaded." (filename obj))))
+  (when (data obj)
+    (if (loaded-p obj)
+      (xaselect (data obj) selector-fn)
+      (error "Data source ~a not loaded." (filename obj)))))
 
 
 ;; ======================================================================
@@ -51,8 +52,8 @@
    (execute-fn
     :initarg :execute-fn
     :accessor execute-fn)
-   (dump-fn
-    :accessor dump-fn)
+   (disp-fn
+    :accessor disp-fn)
    (pstep-limit
     :accessor pstep-limit)
    (pstep-fn
@@ -63,6 +64,12 @@
     :accessor pkill-fn)
    (data-sources
     :accessor data-sources
+    :initform '())
+   (errorlogs
+    :accessor errorlogs
+    :initform '())
+   (errordumps
+    :accessor errordumps
     :initform '()))
   (:documentation "Wax script environment."))
 
@@ -70,8 +77,8 @@
 ;; ----------------------------------------------------------------------
 ;; Progress window methods
 
-(defmethod dump ((obj wax-script) control-string &rest args)
-  (apply (dump-fn obj) control-string args))
+(defmethod disp ((obj wax-script) control-string &rest args)
+  (apply (disp-fn obj) control-string args))
 
 ;(defmethod set-pstep-limit ((obj wax-script) limit)
 ;  (setf (pstep-limit obj) limit))
@@ -153,6 +160,55 @@
 
 
 ;; ----------------------------------------------------------------------
+;; Error messages
+
+
+;; General
+(defmethod queue-message ((obj wax-script) getter setter string)
+  (funcall setter (cons string (funcall getter obj)) obj))
+
+(defmethod messages-waiting-p ((obj wax-script) getter)
+  (not (zerop (length (funcall getter obj)))))
+
+(defmethod disp-messages ((obj wax-script) getter)
+  (dolist (message (reverse (funcall getter obj)))
+    (disp obj message))
+  (disp obj "~3%"))
+
+(defmethod purge-messages ((obj wax-script) setter)
+  (funcall setter '() obj))
+;  (setf (funcall accessor obj) '()))
+
+
+;; Errorlogs
+(defmethod queue-errorlog ((obj wax-script) string)
+  (queue-message obj #'errorlogs #'(setf errorlogs) string))
+
+(defmethod errorlogs-waiting-p ((obj wax-script))
+  (messages-waiting-p obj #'errorlogs))
+
+(defmethod disp-errorlogs ((obj wax-script))
+  (disp-messages obj #'errorlogs))
+
+(defmethod purge-errorlogs ((obj wax-script))
+  (purge-messages obj #'(setf errorlogs)))
+
+
+;; Errordumps
+(defmethod queue-errordump ((obj wax-script) string)
+  (queue-message obj #'errordumps #'(setf errordumps) string))
+
+(defmethod errordumps-waiting-p ((obj wax-script))
+  (messages-waiting-p obj #'errordumps))
+
+(defmethod disp-errordumps ((obj wax-script))
+  (disp-messages obj #'errordumps))
+
+(defmethod purge-errordumps ((obj wax-script))
+  (purge-messages obj #'(setf errordumps)))
+
+
+;; ----------------------------------------------------------------------
 ;; Execution
 
 (defmethod set-execute-fn ((obj wax-script) fn)
@@ -187,10 +243,10 @@
                  :execute-fn #'(lambda (obj)
                                  (with-progress-new ("Hihi" obj (/ (length (state obj)) 2))
                                    (loop for (k v) on (state obj) by #'cddr doing
-                                         (dump obj "~a  ~a~%" k v)
-                                         (dump obj "~a~%" (get-state obj k))
+                                         (disp obj "~a  ~a~%" k v)
+                                         (disp obj "~a~%" (get-state obj k))
                                          (setf (get-state obj k) "Grr")
-                                         (dump obj "~a~%" (get-state obj k))
+                                         (disp obj "~a~%" (get-state obj k))
                                          (pstep obj)
                                          (pabort obj)
                                          (sleep 1)))
@@ -216,7 +272,7 @@
               :execute-fn
               #'(lambda (obj)
                   (with-progress-new ("Haladás!" obj 2)
-                    (dump obj "KIR tábla betöltése~%")
+                    (disp obj "KIR tábla betöltése~%")
                     (load-data-source obj :kir)
                     (let ((row (select-row-from
                                 obj :kir #'(lambda (row)
@@ -224,14 +280,14 @@
                                                      40003)
                                                   (= (parse-number (xcref row "A feladatellátási hely sorszáma"))
                                                      5))))))
-                      (dump obj "Eredmény: ~a~%" (xcref row "A feladatellátási hely pontos címe")))
-                    (dump obj "TK vezetõ tábla betöltése~%")
+                      (disp obj "Eredmény: ~a~%" (xcref row "A feladatellátási hely pontos címe")))
+                    (disp obj "TK vezetõ tábla betöltése~%")
                     (load-data-source obj :tks)
                     (let ((row (select-row-from
                                 obj :tks
                                 #'(lambda (row)
                                     (string= (xcref row "TK") "Szigetszentmiklósi Tankerületi Központ")))))
-                      (dump obj "Eredmény: ~a~%" (xcref row "Gazdasági vez.")))
+                      (disp obj "Eredmény: ~a~%" (xcref row "Gazdasági vez.")))
                     (sleep 5))))))
     (add-data-source obj :kir "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\kir_mukodo_feladatellatasi_helyek_2025_01_06.xlsx")
     (add-data-source obj :tks "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\TK vezetõk.xlsx")

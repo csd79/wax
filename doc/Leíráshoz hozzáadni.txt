@@ -1,9 +1,16 @@
 Tanév kezdődátum vagy módosítás érvényesség kezdődátuma
 Kinevezésmódosítás esetén ez a dátum kerül a ".... napi hatállyal" szövegrészek üres helyére.
 Emellett mind kinevezések, mind módosítások esetén az illetményelemek listájában ez a dátum lesz az egyes tantárgyak után járó illetménynövekedés és az esélyteremtési illetményrész érvényességének kezdődátuma, de csak abban az esetben ha nem korábbi a belépés dátumánál, különben az lesz a két illetményelem érvényességének kezdődátuma.
-
+[ELLENŐRIZNI HOGY EZ EGYEZIK-E MÉG A FÜGGVÉNNYEL!]
 
 
 
 Tabulátorok
 B2, B8 és B9 személyi körök dokumentumainál az első oldalon lévő szültési név, hely és idő, valamint anya neve sorok értékei, valamint minden dokumentumban a munkakör, munkavégzés helye, heti munkaidő és FEOR-szám sorok (csak a fekete színnel írt sorok) értékei előtt tabulátor található. Ezeknek a soroknak az értékeit igény esetén egymás alá rendezhetjük. Csak arra kell ügyelni hogy mindig csak 1 db. tabulátor karakter válassza el az értéket a sor elejétől.
+
+
+
+
+Lekérdezés
+A neve "...kinevezésmódosításhoz++". De minden iratfajtához ez használatos.
+[MÁR NEM EZ A NEVE!]

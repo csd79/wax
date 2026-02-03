@@ -13,9 +13,9 @@
   ()
   (:panes
    ;; Pane to contain text output from the working thread.
-   (text-dump
+   (text-disp
     capi:editor-pane
-    :accessor           text-dump
+    :accessor           text-disp
     :flag               'minimal-example
     :buffer-name        (:initarg buffer-name)
     :enabled            :read-only
@@ -49,14 +49,15 @@
   ()
   (:panes
    ;; Pane to contain text output from the working thread.
-   (text-dump
+   (text-disp
     capi:editor-pane
-    :accessor           text-dump
+    :accessor           text-disp
     :flag               'minimal-example
     :buffer-name        (:initarg buffer-name)
     :enabled            :read-only
     :visible-min-width  '(character 80)
     :visible-min-height '(character 30)
+    :wrap-style         :split-on-space
     :vertical-scroll    t)
    ;; Progress bar.
    (progress
@@ -83,7 +84,7 @@
     :enabled nil)
    )
   (:layouts
-   (upper capi:column-layout '(text-dump progress rest-time))
+   (upper capi:column-layout '(text-disp progress rest-time))
    (lower capi:row-layout '(abort-button close-button))
    (window capi:column-layout '(upper lower)))
   (:default-initargs
@@ -122,7 +123,7 @@
     (apply #'concatenate 'string (nreverse accum))))
 
 
-#|(defmacro with-progress ((title abort dumper mover ccount &optional (buffername "temp")) &body body)
+#|(defmacro with-progress ((title abort disper mover ccount &optional (buffername "temp")) &body body)
   (let ((interface  (gensym))
         (i          (gensym))
         (aborted    (gensym))
@@ -141,7 +142,7 @@
               (,start-time (get-internal-real-time)))
          (unwind-protect
              (progn
-               (capi:modify-editor-pane-buffer (text-dump ,interface) :contents "")
+               (capi:modify-editor-pane-buffer (text-disp ,interface) :contents "")
                (capi:display ,interface)
                (block big-body
                  (flet ((,mover (&key (abs nil) (step 1))
@@ -157,12 +158,12 @@
                                   (format nil "Eltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
                                           (timestr (round time-spent))
                                           (timestr (round time-left))))))
-                        (,dumper (string &rest args)
+                        (,disper (string &rest args)
                           (ignore-errors
                             (let* ((buffer (editor:buffer-from-name ,buffername))
                                    (point  (editor:buffers-end buffer)))
                               (editor:insert-string point (apply #'format nil string args))
-                              (capi:scroll (text-dump ,interface) :vertical :move :end))))
+                              (capi:scroll (text-disp ,interface) :vertical :move :end))))
                         (,abort ()
                           (when ,aborted
                             (return-from big-body))))
@@ -176,13 +177,26 @@
   (setf (capi:button-enabled (close-button interface)) t
         (capi:button-enabled (abort-button interface)) nil))
 
+(defparameter *faces*
+  (list
+   (editor:make-face 'one   :if-exists :overwrite :foreground :red :bold-p t)
+   (editor:make-face 'two   :if-exists :overwrite :foreground :honeydew4 :italic-p t)
+   (editor:make-face 'three :if-exists :overwrite :foreground :blue3 :underline-p t)
+   ))
+        
+
+
+(defun face ()
+  (nth (random (length *faces*)) *faces*))
+
 
 (defmacro with-progress-new ((title obj &key (limit nil) (buffername "temp")) &body body)
   (let ((interface  (gensym))
         (i          (gensym))
         (aborted    (gensym))
         (start-time (gensym))
-        (count      (gensym)))
+        (count      (gensym))
+        (rollback   (gensym)))
     `(progn
        (let* ((,aborted   nil)
               (,interface
@@ -200,55 +214,77 @@
                                                   (capi:destroy interface))))
               (,i 0)
               (,count ,limit)
-              (,start-time (get-internal-real-time)))
-         (unwind-protect
-             (progn
-               (capi:modify-editor-pane-buffer (text-dump ,interface) :contents "")
-               (capi:display ,interface)
-               (block big-body
-                 (setf (pstep-fn ,obj)
-                       #'(lambda (&key (abs nil) (step 1))
-                           (let* ((percent (if (and abs (numberp abs) (<= abs 100))
-                                             abs
-                                             (* 100 (/ (incf ,i step)
-                                                        (or ,count (pstep-limit ,obj))))))
-                                  (current-time (get-internal-real-time))
-                                  (time-spent   (/ (- current-time ,start-time)
-                                                   internal-time-units-per-second))
-                                  (time-left    (max (- (* time-spent (/ 100 percent)) time-spent)
-                                                     0)))
-                             (setf (capi:range-slug-start (progress ,interface)) (round percent))
-                             (setf (capi:title-pane-text (rest-time ,interface))
-                                   (format nil "E ltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
-                                           (timestr (round time-spent))
-                                           (timestr (round time-left))))))
-                       (dump-fn ,obj)
-                       #'(lambda (string &rest args)
-                           (ignore-errors
-                             (let* ((buffer (editor:buffer-from-name ,buffername))
-                                    (point  (editor:buffers-end buffer)))
-                               (editor:insert-string point (apply #'format nil string args))
-                               (capi:scroll (text-dump ,interface) :vertical :move :end))))
-                       (pabort-fn ,obj)
-                       #'(lambda ()
-                           (when ,aborted
-                             (dump ,obj "~%~%A feldolgozás megszakítva, az ablak bezárható.~%")
-                             (return-from big-body)))
-                       (pkill-fn ,obj)
-                       #'(lambda ()
-                           (setf ,aborted t)
-                           (dump ,obj "~%~%A feldolgozás félbeszakadt, az ablak bezárható.~%")
-                           (switch-buttons ,interface))
-                       )
-                 ,@body
-                 (switch-buttons ,interface)
-;                 (setf (capi:button-enabled (close-button ,interface)) t
-;                       (capi:button-enabled (abort-button ,interface)) nil)
-;                 (wg-msg "A feldolgozás véget ért.")))
-                 (dump ,obj "~%~%A feldolgozás befejezõdött, az ablak bezárható.~%")
-                 ))
-;           (capi:destroy ,interface)
-           )))))
+              (,start-time (get-internal-real-time))
+              (,rollback nil))
+         (capi:modify-editor-pane-buffer (text-disp ,interface) :contents "")
+         (capi:display ,interface)
+         (block big-body
+           (setf (pstep-fn ,obj)
+                 #'(lambda (&key (abs nil) (step 1))
+                     (let* ((percent (if (and abs (numberp abs) (<= abs 100))
+                                       abs
+                                       (* 100 (/ (incf ,i step)
+                                                 (or ,count (pstep-limit ,obj))))))
+                            (current-time (get-internal-real-time))
+                            (time-spent   (/ (- current-time ,start-time)
+                                             internal-time-units-per-second))
+                            (time-left    (max (- (* time-spent (/ 100 percent)) time-spent)
+                                               0)))
+                       (setf (capi:range-slug-start (progress ,interface)) (round percent))
+                       (setf (capi:title-pane-text (rest-time ,interface))
+                             (format nil "Eltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
+                                     (timestr (round time-spent))
+                                     (timestr (round time-left))))))
+                 (disp-fn ,obj)
+                 #'(lambda (string &rest args)
+                     (ignore-errors
+#|                       (let* ((buffer (editor:buffer-from-name ,buffername))
+                              (point  (editor:buffers-end buffer)))
+                         (editor:insert-string point (apply #'format nil string args))
+                         (capi:scroll (text-disp ,interface) :vertical :move :end))|#
+                       (let* ((buffer   (editor:buffer-from-name ,buffername))
+                              (point    (editor:buffers-end buffer))
+                              (formated (apply #'format nil string args)))
+                         (editor:with-point ((start point :before-insert)
+                                             (end   point :after-insert))
+                           (editor:insert-string start formated)
+;                           (editor:insert-string start (editor:points-to-string start end))
+
+;                           (editor:put-text-property-no-edit start end 'face (face))
+                           (editor:put-text-property-no-edit
+                            (editor:buffers-start buffer)
+                            (editor:buffers-end buffer)
+                            'face (face))
+
+                           (capi:scroll (text-disp ,interface) :vertical :move :end)
+                           )
+                         )
+                       ))
+                 (pabort-fn ,obj)
+                 #'(lambda ()
+                     (when ,aborted
+                       (disp ,obj "~%~%A feldolgozás megszakítva, az ablak bezárható.~%")
+                       (return-from big-body)))
+                 (pkill-fn ,obj)
+                 #'(lambda ()
+                     (setf ,aborted t)
+                     (disp ,obj "~%~%A feldolgozás félbeszakadt, az ablak bezárható.~%")
+                     (switch-buttons ,interface))
+                 )
+           ,@body
+           (when (errorlogs-waiting-p ,obj)
+             (setf ,rollback (capi:get-vertical-scroll-parameters (text-disp ,interface) :max-range))
+             (let ((line (line 70 #\*)))
+               (disp ,obj "~3%~a~%HIBÁK RÉSZLETEZÉSE:~%~a~2%" line line))
+             (disp-errorlogs ,obj)
+             (purge-errorlogs ,obj))
+           (switch-buttons ,interface)
+           (disp ,obj "~2%A feldolgozás befejezõdött, az ablak bezárható.~%")
+           (when ,rollback
+             (capi:execute-with-interface
+              ,interface
+              #'(lambda ()
+                  (capi:scroll (text-disp ,interface) :vertical :move ,rollback)))))))))
 
 
 ;; ----------------------------------------------------------------------

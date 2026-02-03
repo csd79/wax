@@ -17,14 +17,23 @@
 (defparameter *appdir* "wax")
 
 
-(defun appdir (&optional (package-name "WAX"))
+;(defun appdir (&optional (package-name "WAX"))
+;(defun appdir (&optional (package-name (package-name *package*)))
+(defun appdir (&optional package-name)
   "Namestring of the directory containing wax."
-  (if (symbol-value (find-symbol "*INDEPENDENT-EXE*" package-name))
-      (namestring (lw:current-pathname))
+  (let ((package-name* (cond ((packagep package-name)
+                              (package-name package-name))
+                             ((stringp package-name)
+                              (string-upcase package-name))
+                             (t (package-name *package*)))))
+;   (wg-msg "ind: ~a" (symbol-value (find-symbol "*INDEPENDENT-EXE*" package-name*)))
+;   (wg-msg "cp: ~a" (namestring (lw:current-pathname )))
+    (if (symbol-value (find-symbol "*INDEPENDENT-EXE*" package-name*))
+      (namestring (lw:current-pathname ))
       (concatenate 'string (user-homedir)
                    "common-lisp\\"
-                   (symbol-value (find-symbol "*APPDIR*" package-name))
-                   "\\")))
+                   (symbol-value (find-symbol "*APPDIR*" package-name*))
+                   "\\"))))
 
 
 (defun user-tempdir ()
@@ -248,6 +257,24 @@
   (apply #'encode-universal-time
          0 0 0 (reverse hudatelist)))
 
+(defun valid-date-p (year month day)
+  "T if date describes an actual day in spacetime."
+  (when (ignore-errors (encode-universal-time 1 0 0 day month year)) t))
+
+(defun well-formed-hudate-p (list)
+  (and (every #'integerp list)
+       (>= (first list) 1900)
+       (apply #'valid-date-p list)))
+  
+(deftype hudate ()
+  `(and list (not null) (satisfies well-formed-hudate-p)))
+
+(defun hudate-parsable-p (str)
+  (typep (parse-hudate str) 'hudate))
+
+(deftype hudate-parsable ()
+  `(and string (satisfies hudate-parsable-p)))
+
 
 ;; ----------------------------------------------------------------------
 ;; Currency
@@ -322,11 +349,12 @@
     (mapc #'(lambda (char) (setf copy (delete char copy :test #'char=))) illegals)
     copy))
 
-(defun clean-name (string)
+(defun clean-name (string &key (capitalize t))
   "STRING capitalized, with no leading, trailing or double spaces."
-  (astring-capitalize
-   (str:trim
-    (str:unwords (str:words string)))))
+  (let ((spaced (str:trim (str:unwords (str:words string)))))
+    (if capitalize
+      (astring-capitalize spaced)
+      spaced)))
 
 (defun add-article (word)
   "Ensure proper hungarian article before WORD."

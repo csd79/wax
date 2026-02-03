@@ -28,6 +28,9 @@
    #:identify-month
    #:parse-hudate
    #:hudate->unitime
+   #:valid-date-p
+   #:hudate
+   #:hudate-parsable
    #:sub->words
    #:currency
    #:clean-city
@@ -57,12 +60,12 @@
    #:wax-script
    #:state
    #:execute-fn
-   #:dump-fn
+   #:disp-fn
    #:pstep-limit
    #:pstep-fn
    #:pabort-fn
    #:data-sources
-   #:dump
+   #:disp
    #:set-pstep-limit
    #:pstep
    #:pabort
