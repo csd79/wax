@@ -9,44 +9,8 @@
 ;; Progress window
 
 
-#|(capi:define-interface progress ()
-  ()
-  (:panes
-   ;; Pane to contain text output from the working thread.
-   (text-disp
-    capi:editor-pane
-    :accessor           text-disp
-    :flag               'minimal-example
-    :buffer-name        (:initarg buffer-name)
-    :enabled            :read-only
-    :visible-min-width  '(character 80)
-    :visible-min-height '(character 30)
-    :vertical-scroll    t)
-   ;; Progress bar.
-   (progress
-    capi:progress-bar
-    :accessor progress
-    :start 0
-    :end 100)
-   (rest-time
-    capi:title-pane
-    :accessor rest-time
-    :text "")
-   (abort-button
-    capi:push-button
-    :accessor abort-button
-    :text "Megszakítás"
-    :callback-type :interface
-    :callback (:initarg abort-callback)))
-  (:default-initargs
-   :title "Feldolgozás"
-   :best-x 735
-   :best-y 400
-   :window-styles '(:borderless
-                    :shadowed
-                    :movable-by-window-background)))|#
 (capi:define-interface progress ()
-  ()
+  ((full-dump :accessor full-dump :initarg :full-dump))
   (:panes
    ;; Pane to contain text output from the working thread.
    (text-disp
@@ -75,6 +39,13 @@
     :text "Megszakítás"
     :callback-type :interface
     :callback (:initarg abort-callback))
+   (messages-button
+    capi:push-button
+    :accessor messages-button
+    :text "Hibajelzés küldése/mentése"
+    :callback-type :interface
+    :callback (:initarg messages-callback)
+    :enabled nil)
    (close-button
     capi:push-button
     :accessor close-button
@@ -85,7 +56,7 @@
    )
   (:layouts
    (upper capi:column-layout '(text-disp progress rest-time))
-   (lower capi:row-layout '(abort-button close-button))
+   (lower capi:row-layout '(abort-button messages-button close-button))
    (window capi:column-layout '(upper lower)))
   (:default-initargs
    :title "Feldolgozás"
@@ -108,7 +79,14 @@
                     ;:borderless
                     ;:shadowed
                     ;:movable-by-window-background
-                    )))
+                    )
+   ))
+
+
+#|(defun send-messages (obj)
+  (declare (ignore obj))
+  (wg-msg "Összegyûlt üzenetek küldése nekem.")
+  )|#
 
 
 (defun timestr (secs)
@@ -123,59 +101,12 @@
     (apply #'concatenate 'string (nreverse accum))))
 
 
-#|(defmacro with-progress ((title abort disper mover ccount &optional (buffername "temp")) &body body)
-  (let ((interface  (gensym))
-        (i          (gensym))
-        (aborted    (gensym))
-        (start-time (gensym))
-        (count      (gensym)))
-    `(progn(timestamp (get-universal-time))
-       (let* ((,aborted   nil)
-              (,interface (make-instance 'progress :title ,title :buffer-name ,buffername
-                                         :abort-callback #'(lambda (interface)
-                                                             (declare (ignore interface))
-                                                             (when (wg-confirm "Megszakítja a feldolgozást?")
-                                                               (wg-floating-message "Megszakítás ...")
-                                                               (setf ,aborted t)))))
-              (,i 0)
-              (,count ,ccount)
-              (,start-time (get-internal-real-time)))
-         (unwind-protect
-             (progn
-               (capi:modify-editor-pane-buffer (text-disp ,interface) :contents "")
-               (capi:display ,interface)
-               (block big-body
-                 (flet ((,mover (&key (abs nil) (step 1))
-                          (let* ((percent (if (and abs (numberp abs) (<= abs 100))
-                                            abs
-                                            (* 100 (/ (incf ,i step) ,count))))
-                                 (current-time (get-internal-real-time))
-                                 (time-spent   (/ (- current-time ,start-time)
-                                                  internal-time-units-per-second))
-                                 (time-left    (- (* time-spent (/ 100 percent)) time-spent)))
-                            (setf (capi:range-slug-start (progress ,interface)) (round percent))
-                            (setf (capi:title-pane-text (rest-time ,interface))
-                                  (format nil "Eltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
-                                          (timestr (round time-spent))
-                                          (timestr (round time-left))))))
-                        (,disper (string &rest args)
-                          (ignore-errors
-                            (let* ((buffer (editor:buffer-from-name ,buffername))
-                                   (point  (editor:buffers-end buffer)))
-                              (editor:insert-string point (apply #'format nil string args))
-                              (capi:scroll (text-disp ,interface) :vertical :move :end))))
-                        (,abort ()
-                          (when ,aborted
-                            (return-from big-body))))
-                   ,@body
-                   (wg-msg "A feldolgozás véget ért.")
-                   )))
-           (capi:destroy ,interface))))))|#
-
-
-(defun switch-buttons (interface)
+(defun switch-buttons (interface obj)
   (setf (capi:button-enabled (close-button interface)) t
-        (capi:button-enabled (abort-button interface)) nil))
+        (capi:button-enabled (abort-button interface)) nil)
+  (when (errorlogs-waiting-p obj)
+    (setf (capi:button-enabled (messages-button interface)) t)))
+
 
 (defparameter *faces*
   (list
@@ -204,14 +135,24 @@
                               :title ,title
                               :buffer-name ,buffername
                               :abort-callback #'(lambda (interface)
+                                                  (declare (ignore interface))
                                                   (when (and (not ,aborted)
                                                              (wg-confirm "Megszakítja a feldolgozást?"))
                                                     (wg-floating-message "Megszakítás ...")
                                                     (setf ,aborted t)
-                                                    (switch-buttons interface)
+;                                                    (switch-buttons interface)
                                                     ))
                               :close-callback #'(lambda (interface)
-                                                  (capi:destroy interface))))
+                                                  (purge-errorlogs ,obj)
+                                                  (purge-errordumps ,obj)
+                                                  (capi:destroy interface))
+                              :messages-callback #'(lambda (interface)
+                                                     (setf (full-dump interface) (fulldump ,obj))
+                                                     (wg-save-error-callback interface))
+;                              (lambda (interface)
+;                                                     (declare (ignore interface))
+;                                                     (send-messages ,obj))
+                              ))
               (,i 0)
               (,count ,limit)
               (,start-time (get-internal-real-time))
@@ -264,12 +205,13 @@
                  #'(lambda ()
                      (when ,aborted
                        (disp ,obj "~%~%A feldolgozás megszakítva, az ablak bezárható.~%")
+                       (switch-buttons ,interface ,obj)
                        (return-from big-body)))
                  (pkill-fn ,obj)
                  #'(lambda ()
                      (setf ,aborted t)
                      (disp ,obj "~%~%A feldolgozás félbeszakadt, az ablak bezárható.~%")
-                     (switch-buttons ,interface))
+                     (switch-buttons ,interface ,obj))
                  )
            ,@body
            (when (errorlogs-waiting-p ,obj)
@@ -277,8 +219,8 @@
              (let ((line (line 70 #\*)))
                (disp ,obj "~3%~a~%HIBÁK RÉSZLETEZÉSE:~%~a~2%" line line))
              (disp-errorlogs ,obj)
-             (purge-errorlogs ,obj))
-           (switch-buttons ,interface)
+             )
+           (switch-buttons ,interface ,obj)
            (disp ,obj "~2%A feldolgozás befejezõdött, az ablak bezárható.~%")
            (when ,rollback
              (capi:execute-with-interface
@@ -403,23 +345,53 @@
 ;; Error dialog
 
 
-(defparameter *wg-error-details* nil)
+(defun dumpfile-name (&key dir (use-tempdir nil))
+  (let* ((name  (concatenate 'string (string-downcase (package-name *package*))
+                             "-error-" (timestamp (get-universal-time))))
+         (dir*  (cond (dir         (list :defaults dir))
+                      (use-tempdir (list :defaults (hcl:get-temp-directory)))
+                      (t           nil)))
+         (pname (apply #'make-pathname
+                          (append (list :name name :type "txt") dir*))))
+    (namestring pname)))
 
 
-(defun wg-save-error (&rest interface)
-  (declare (ignore interface))
-  (let* ((dir  (capi:prompt-for-directory 
-                "Válassza ki a mappát a hibajelzés mentéshez"
-                :use-file-dialog t
-                :pathname (appdir)))
-         (file (when dir
-                 (make-pathname :defaults dir
-                                :name (concatenate 'string "error-" (timestamp (get-universal-time)))
-                                :type "txt"))))
+(defun wg-save-error (interface)
+  (let ((file (capi:prompt-for-file
+               "Válassza ki a hibajelzés mentésének helyét!"
+               :pathname (dumpfile-name :dir (appdir))
+               :filter "*.txt"
+               :filters '("Szövegfájlok" "*.txt"
+                          "Minden fájl" "*.*")
+               :if-exists :prompt
+               :if-does-not-exist :ok
+               :operation :save)))
     (when file
-      (save-forms file *wg-error-details*)
-      (setf *wg-error-details* nil)
-      (wg-msg "A hibajelzés elmentve:~%~a" file))))
+      (save-forms file (full-dump interface))
+      (wg-msg "A hibajelzés elmentve:~%~a" file))
+    (capi:destroy interface)))
+
+
+(defun wg-send-error (interface)
+  (let ((dumpfile (dumpfile-name :use-tempdir t)))
+    (if (outlook-running-p)
+      (progn
+        (save-forms dumpfile (full-dump interface))
+        (with-property-accessors
+          (setf (property-accessors-on) t)
+          (new-mail "denes.cselovszki@kk.gov.hu"
+                    (format nil "~a hibajelzés" (package-name *package*))
+                    :attch dumpfile))
+        (capi:destroy interface))
+      (progn
+        (wg-save-error interface)))))
+
+
+(defun wg-save-error-callback (interface)
+#|  (if (outlook-running-p)
+    (wg-send-error interface)
+    (wg-save-error interface)))|#
+  (wg-send-error interface))
 
 
 (gp:register-image-translation
@@ -428,12 +400,13 @@
 
 
 (defun display-utya-duck (pane x y width height)
+  (declare (ignore x y width height))
   (let ((image (gp:load-image pane 'utya-duck)))
     (gp:draw-image pane image 0 0)))
 
 
 (capi:define-interface errordial ()
-  ()
+  ((full-dump :accessor full-dump :initarg :full-dump))
   (:panes
    (utya-duck
     capi:output-pane
@@ -452,13 +425,28 @@
 ;    :external-max-width 280
     :visible-max-height 200
     )
-   (two-buttons
+
+   (messages-button
+    capi:push-button
+    :accessor messages-button
+    :text "Hibajelzés küldése/mentése"
+    :callback-type :interface
+    :callback #'wg-save-error-callback)
+   (close-button
+    capi:push-button
+    :accessor close-button
+    :text "Bezárás"
+    :callback-type :interface
+    :callback #'capi:quit-interface)
+
+#|   (two-buttons
     capi:push-button-panel
     :accessor two-buttons
     :items (list "Hibajelzés mentése" "Bezárás")
     :layout-args '(:x-uniform-size-p t)
     :callback-type :interface
-    :callbacks '(wg-save-error capi:quit-interface)))
+    :callbacks '(wg-save-error capi:quit-interface))|#
+   )
   (:layouts
    (upper
     capi:row-layout
@@ -470,7 +458,8 @@
     )
    (lower
     capi:row-layout
-    '(two-buttons)
+    '(messages-button close-button)
+;    '(two-buttons)
 ;    :x-adjust :centre
     )
    (rows
@@ -492,12 +481,14 @@
 ;   :best-height 200
    :layout 'rows
 ;   :resizable nil
+   :full-dump ""
    ))
 
 
-(defun wg-errordial (message details)
-  (setf *wg-error-details* (append (list :message message) details))
+(defun wg-errordial (obj) ;message details)
+;  (setf *wg-error-details* (append (list :message message) details))
   (capi:contain
    (make-instance
     'errordial
-    :message message)))
+    :message (first (errorlogs obj))
+    :full-dump (fulldump obj))))

@@ -2,6 +2,17 @@
 
 
 
+A script objektum tartalmazzon egy listát a purgable átmeneti fájlokról amiket menet közben hoztunk létre. Legyen metódus amivel hozzáadhatunk pathname-eket ehhez a listához. A futás végén hívódjon meg egy cleanup metódus ami ezeket törli.
+
+
+
+GUI-ban egységesíteni a progress- és a hibaüzenet ablakokat a mentés gomb (felirata), a FULL-DUMP slot és a close-callback (purge) szempontjából. Öröklődjenek egy közös szülőosztályból.
+A Close-callback interface-t kap, ezért valahogy el kell juttatni hozzá az objektumot. Progress-ben ez könnyű mert az makró, de a másiknál nem.
+
+
+A progress ablakban a folyamat végén megjelenő hibaüzenetekben legyenes színes tájékozódó szavak.
+
+
 2. keresztnév: ha valakinek nincs, üres sztring kerül a táblázatba. De ha van és generálás előtt kitörlik, üres cella. Nem ugyanaz, az utóbbin a str:join fennakad!
 
 

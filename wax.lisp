@@ -61,7 +61,9 @@
    (pabort-fn
     :accessor pabort-fn)
    (pkill-fn
-    :accessor pkill-fn)
+    :accessor pkill-fn
+    :initform #'(lambda (&optional obj)
+                  (declare (ignore obj))))
    (data-sources
     :accessor data-sources
     :initform '())
@@ -87,9 +89,11 @@
   (funcall (pstep-fn obj) :abs abs :step step))
 
 (defmethod pabort ((obj wax-script))
+  "Stop the progress loop by user intent."
   (funcall (pabort-fn obj)))
 
 (defmethod pkill ((obj wax-script))
+  "Stop the progress loop from a WITH-WAX-ERRORSINK clause."
   (funcall (pkill-fn obj)))
 
 
@@ -173,7 +177,7 @@
 (defmethod disp-messages ((obj wax-script) getter)
   (dolist (message (reverse (funcall getter obj)))
     (disp obj message))
-  (disp obj "~3%"))
+  (disp obj "~6%"))
 
 (defmethod purge-messages ((obj wax-script) setter)
   (funcall setter '() obj))
@@ -206,6 +210,27 @@
 
 (defmethod purge-errordumps ((obj wax-script))
   (purge-messages obj #'(setf errordumps)))
+
+
+;; Dump both streams into a single string.
+(defmethod fulldump ((obj wax-script))
+  (when (errorlogs-waiting-p obj)
+    (let ((fd (make-string-output-stream))
+          (big-sep (format nil "~a~%~a~%~a~%~a~%~a"
+                           (line 77 #\=) (line 77 #\=) (line 77 #\=) (line 77 #\=) (line 77 #\=)))
+          (small-sep (line 70)))
+      (loop for log in (errorlogs obj)
+            for dump in (errordumps obj)
+            doing
+            (format fd "~a~4%~a~%  HIBAÜZENET:~%~a~4%~a~4%~a~%  BACKTRACE:~%~a~4%~a~8%"
+                    big-sep
+                    small-sep
+                    small-sep
+                    log
+                    small-sep
+                    small-sep
+                    dump))
+      (get-output-stream-string fd))))
 
 
 ;; ----------------------------------------------------------------------

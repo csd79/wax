@@ -37,6 +37,7 @@
    #:remove-illegal-filename-chars
    #:clean-name
    #:add-article
+   #:fix-phone-number
    #:line
    #:with-progress
    #:wg-text-input

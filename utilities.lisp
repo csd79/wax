@@ -17,8 +17,6 @@
 (defparameter *appdir* "wax")
 
 
-;(defun appdir (&optional (package-name "WAX"))
-;(defun appdir (&optional (package-name (package-name *package*)))
 (defun appdir (&optional package-name)
   "Namestring of the directory containing wax."
   (let ((package-name* (cond ((packagep package-name)
@@ -26,8 +24,6 @@
                              ((stringp package-name)
                               (string-upcase package-name))
                              (t (package-name *package*)))))
-;   (wg-msg "ind: ~a" (symbol-value (find-symbol "*INDEPENDENT-EXE*" package-name*)))
-;   (wg-msg "cp: ~a" (namestring (lw:current-pathname )))
     (if (symbol-value (find-symbol "*INDEPENDENT-EXE*" package-name*))
       (namestring (lw:current-pathname ))
       (concatenate 'string (user-homedir)
@@ -363,6 +359,45 @@
          (article (if (position (elt clean 0) vowels :test #'char=)
                     "az" "a")))
     (concatenate 'string article " " clean)))
+
+
+;; ----------------------------------------------------------------------
+;; Phone numbers
+
+
+(defun ensure-string-phone-number (value)
+  (typecase value
+    (string value)
+    (number (format nil "~a" (rational value)))))
+
+(defun trim-phone-number (string)
+  (remove-if #'(lambda (char)
+                 (or (< (char-code char) 48)
+                     (> (char-code char) 57)))
+             string))
+
+(defun decompose-phone-number (string)
+  (ppcre:register-groups-bind (country rest region-bp number-bp region-c number-c region-m number-m)
+      ("^(06|36)?((1)(\\d{7})|(\\d{2})(\\d{6})|(\\d{2})(\\d{7}))$" string)
+    (declare (ignore country rest))
+    (cond (region-bp (list "36" region-bp number-bp))
+          (region-c  (list "36" region-c number-c))
+          (region-m  (list "36" region-m number-m)))))
+
+(defun format-phone-number (list)
+  (format nil "+~d ~d ~d-~d"
+          (first list)
+          (second list)
+          (subseq (third list) 0 3)
+          (subseq (third list) 3)))
+
+(defun fix-phone-number (value)
+  (let ((string (ensure-string-phone-number value)))
+    (if (<= (length string) 16)
+        (format-phone-number
+         (decompose-phone-number
+          (trim-phone-number string)))
+      string)))
 
 
 ;; ----------------------------------------------------------------------

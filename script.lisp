@@ -130,7 +130,6 @@
         (codes  '(:code :name :sum :measure :end :titl :cstart)))
     (do-xarows (row r xarray)
       (push (get-fee-row row '(15 16 17 36 30 39 43) codes) result)
-;      (push (get-fee-row row '(19 20 21 35 31 39 43) codes) result))
       (push (get-fee-row row '(19 20 21 35 31 39 35) codes) result))
     (remove-if #'(lambda (elem)
                    (string= "" (getf elem :code)))
@@ -190,43 +189,9 @@
              fees))
 
 
-#|(defun skip-messenger (error xarray)
-  #'(lambda ()
-      (format nil "...hibaüzenet...")
-      )
-  )|#
-
-
-#|(defun exit-doc (message)
-  (error (make-condition
-          'wax-skippable
-          :message message
-          :skip-to 'doc-exit)))|#
-
-
-#|(defun vals-error (xarray cols)
-  #'(lambda (error)
-      (format nil "Hiba érték beillesztésénél: ~a, ~a, ~a, ~a, oszlop(ok): ~a: ~a~2%"
-              (str:replace-first "Tankerületi Központ" "TK" (xaref xarray 0 :a))
-              (xaref xarray 0 :b)
-              (xaref xarray 0 :c)
-              (xaref xarray 0 :ag)
-              cols
-              error)))|#
-
-#|(defun vals-error-msg (xarray cols error)
-  (format nil "Hiba érték beillesztésénél: ~a, ~a, ~a, ~a, oszlop(ok): ~a: ~a~2%"
-                        (str:replace-first "Tankerületi Központ" "TK" (xaref xarray 0 :a))
-                        (xaref xarray 0 :b)
-                        (xaref xarray 0 :c)
-                        (xaref xarray 0 :ag)
-                        cols
-                        error))|#
-
-
 (defmessenger vals-error ((error) field row cols fees obj)
 ;  "~a:~%   SZEMÉLY: ~a, ~a~%   TK: ~a~%   INTÉZMÉNY: ~a~%   SZEMÉLYI KÖR: ~a~%   ÉRINTETT OSZLOP(OK):~%~{~{      \"~a\" = \"~a\"~}~%~}~a   HIBAÜZENET: ~a~%~a~3%"
-  "~a:~%   SZEMÉLY: ~a, ~a~%   TK: ~a~%   INTÉZMÉNY: ~a~%   SZEMÉLYI KÖR: ~a~%   ÉRINTETT OSZLOP(OK):~%~{~{      \"~a\" = \"~a\"~}~%~}~a   HIBAÜZENET: ~a~%~a~3%"
+  "~a:~%   SZEMÉLY: ~a, ~a~%   TK: ~a~%   INTÉZMÉNY: ~a~%   SZEMÉLYI KÖR: ~a~%   ÉRINTETT OSZLOP(OK):~%~{~{      \"~a\" = \"~a\"~}~%~}~a   HIBAÜZENET: ~a~3%"
   (if (string/= field "")
     (format nil "Hiba a \"~a\" mezõ kitöltése közben" field)
     "Hiba egy mezõ kitöltése közben")                           ; field
@@ -243,7 +208,7 @@
             (if obj "iktatószám táblázat, TK adatok, KIR adatok, GUI dátum, jogviszony beszámítás"))
     "")
   error
-  (backtrace->string 2)
+;  (backtrace->string 2)
   )
 
 
@@ -561,7 +526,8 @@
                                        ;;       tanév vége
                                        (cond ((member code '("1114" "1115") :test #'string=)
                                               (let ((end (apply #'msoffice:date-to-excel-serial 
-                                                                (school-year-end (parse-hudate (get-state obj :mod-start))))))
+                                                                (school-year-end (parse-hudate
+                                                                                  (get-state obj :mod-start))))))
                                                 (list (excel-date-string
                                                        (if (empty-cell-p hiv)
                                                          end
@@ -576,12 +542,11 @@
                                                (/= end 2958465))
                                               (list (excel-date-string end :words t)))
                                              ;; Egyébként: nem kell feltüntetni.
-                                             ;; TÖMEGES RÖGZÍTÉSNÉL GYAKRAN HATÁROZOTT IDÕ VÉGE UTÁN DÁTUM KERÜLT RÖGZÍTÉSRE
-                                             ;; ÉRVÉNYESSÉG VÉGEKÉNT, EZÉRT NEM JELENIK MEG!!!
+                                             ;; TÖMEGES RÖGZÍTÉSNÉL GYAKRAN HATÁROZOTT IDÕ VÉGE UTÁN DÁTUM
+                                             ;; KERÜLT RÖGZÍTÉSRE ÉRVÉNYESSÉG VÉGEKÉNT, EZÉRT NEM JELENIK MEG!!!
                                              (t nil)))))
                                 ordered))
                (lines  '()))
-;          (wg-msg "~a" ordered)
           (dolist (cookin digest)
             (destructuring-bind (name sum &optional measure end) cookin
               (push (format nil "~a:~C~a~CFt~C" name #\tab sum #\tab #\return) lines)
@@ -827,25 +792,11 @@
     (values clean start (1- end))))
 
 
-#|(defun generate-new-val (val-fn xarray obj)
-  (handler-bind ((error #'(lambda (error)
-                            (when *errorsink-on*
-                              (pkill obj)
-                              (dispatch-wg-errordial
-                               (com-dispatch-invoke-exception-error-details error)
-                               "~a: ~a: ~a" :source :method-name :description)
-                              (throw 'sinked nil))
-                            )
-                        ))
-    (funcall val-fn xarray obj)))|#
-
-
 (defun fill-template (current xarray obj)
   (dolist (desc *t2*)
     (destructuring-bind (temp val-fn &optional range-fn)
         desc
       (let ((new-value (funcall val-fn xarray obj)))
-;      (let ((new-value (generate-new-val val-fn xarray obj)))
         (when new-value
           (multiple-value-bind (clean start-offset end-offset)
               (text-template-target temp)
@@ -907,13 +858,9 @@
       (pabort obj))))
 
 
-#|(defun proc-error ()
-  #'(lambda (error) (format nil "Hiba a feldolgozás során: ~a~%" error)))|#
-
 (defmessenger proc-error ((err))
   "FELDOLGOZÁS: ~a~%"
   err)
-;  (getf (condition-string err) :data))
 
 
 (defun process (obj)
@@ -941,10 +888,8 @@
                 (disp obj "~a személyi kör  ~a~%" ps (line (- 70 (+ (length ps) 15))))
                 ;; Személyi kör sorok.
                 (let ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps)))))
-                  (process-ps obj tk-ps-only ps word)))))
-          )
-        ))
-      (!quit word)))
+                  (process-ps obj tk-ps-only ps word))))))))
+    (!quit word)))
 
 
 ;;; ----------------------------------------------------------------------
@@ -984,16 +929,11 @@
 (defun start ()
   (in-package :wax)
   (let ((obj (make-instance 'wax-script :execute-fn #'process)))
-#|    (wg-msg "ind: ~a" (symbol-value (find-symbol "*INDEPENDENT-EXE*" "WAX")))
-    (wg-msg "cp: ~a" (namestring (lw:current-pathname)))
-    (wg-msg "pack: ~a" (package-name *package*))
-    (wg-msg "ad: ~a" (appdir))
-    (wg-msg "ad2: ~a" (appdir "WAX"))|#
     (init-obj-state obj)
     (load-state obj)
     ;; Fõablak létrehozása
     (wg-window
-     "Kinevezés generáló 2025.09.01."
+     "Kinevezés generáló 2026.01.01."
      180
      
      "Dokumentumtípus választása"
@@ -1047,11 +987,13 @@
       #'(lambda (text &rest rest)
           (declare (ignore rest))
           (setf (get-state obj :filenum-file) text)
-          (when (string= text "")
-            (setf *fileno-data* nil)))
+;          (when (string= text "")
+;            (setf *fileno-data* nil))
+          )
       (get-state obj :filenum-file)
       :cancel #'(lambda () (setf (get-state obj :filenum-file) ""
-                                 *fileno-data* nil)))
+;                            *fileno-data* nil
+                            )))
      
      "KIR feladatellátási helyek (opcionális)";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
      (wg-file-selector
@@ -1061,11 +1003,13 @@
       #'(lambda (text &rest rest)
           (declare (ignore rest))
           (setf (get-state obj :kir-file) text)
-          (when (string= text "")
-            (setf *kir-data* nil)))
+;          (when (string= text "")
+;            (setf *kir-data* nil))
+          )
       (get-state obj :kir-file)
       :cancel #'(lambda () (setf (get-state obj :kir-file) ""
-                                 *kir-data* nil)))
+;                                 *kir-data* nil
+                                 )))
      
      "Dokumentumsablonok mappája";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
      (wg-dir-selector
