@@ -372,7 +372,7 @@
     (capi:destroy interface)))
 
 
-(defun wg-send-error (interface)
+#|(defun wg-send-error (interface)
   (let ((dumpfile (dumpfile-name :use-tempdir t)))
     (if (outlook-running-p)
       (progn
@@ -382,6 +382,17 @@
           (new-mail "denes.cselovszki@kk.gov.hu"
                     (format nil "~a hibajelzés" (package-name *package*))
                     :attch dumpfile))
+        (capi:destroy interface))
+      (progn
+        (wg-save-error interface)))))|#
+(defun wg-send-error (interface)
+  (let ((dumpfile (dumpfile-name :use-tempdir t)))
+    (if (outlook-running-p)
+      (progn
+        (save-forms dumpfile (full-dump interface))
+        (new-mail "denes.cselovszki@kk.gov.hu"
+                  (format nil "~a hibajelzés" (package-name *package*))
+                  :attch dumpfile)
         (capi:destroy interface))
       (progn
         (wg-save-error interface)))))

@@ -5,7 +5,7 @@
 
 
 (defpackage #:wax
-  (:use #:cl #:ccom3 #:achar #:msoffice)
+  (:use #:cl #:ccom4 #:achar #:ccoffice)
   (:export
    #:start
    #:appdir
@@ -58,7 +58,7 @@
    #:load-src
    #:purge
    #:select-row
-   #:wax-script
+   #:wax-app
    #:state
    #:execute-fn
    #:disp-fn
@@ -82,6 +82,6 @@
    #:source-filename
    #:source-data
    #:set-execute-fn
-   #:init-wax-script
+   #:init-wax-app
    #:wax-execute
    ))

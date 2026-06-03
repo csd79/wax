@@ -2,6 +2,7 @@
                                                                               ;
 
 (in-package #:wax)
+#.(enable-ccom-syntax)
 
 
 ;;; ----------------------------------------------------------------------
@@ -230,7 +231,9 @@
     ;; When prescribed, add OBJ to CLAUSES
     (when obj  (push (list obj 'obj) clauses))
     `(lambda (row obj)
-       (skippable (condition 'doc-exit (vals-error ,(or field "") row ',(mapcar #'second binds) ,(when fees t) ,(when obj t)))
+       (skippable (condition
+                   'doc-exit
+                   (vals-error ,(or field "") row ',(mapcar #'second binds) ,(when fees t) ,(when obj t)))
          (let ,clauses
            ,@slim-body)))))
 
@@ -525,7 +528,7 @@
                                        ;;     különben:
                                        ;;       tanév vége
                                        (cond ((member code '("1114" "1115") :test #'string=)
-                                              (let ((end (apply #'msoffice:date-to-excel-serial 
+                                              (let ((end (apply #'ccoffice:date-to-excel-serial 
                                                                 (school-year-end (parse-hudate
                                                                                   (get-state obj :mod-start))))))
                                                 (list (excel-date-string
@@ -793,6 +796,7 @@
 
 
 (defun fill-template (current xarray obj)
+;  (wg-msg "fill-template")
   (dolist (desc *t2*)
     (destructuring-bind (temp val-fn &optional range-fn)
         desc
@@ -802,7 +806,7 @@
               (text-template-target temp)
             (cclet* ((range (if range-fn
                               (funcall range-fn current)
-                              (?content current)))
+                              (?'content current)))
                      (found (range-find-text range clean)))
               (when found
                 (cclet* ((start (+ found start-offset))
@@ -817,25 +821,25 @@
     (when doctemp
       (with-document (:doc doc :app word :open doctemp :read-only nil :close t :save t)
         (catch 'doc-exit
-          (!saveas2 doc filename)
+          (!'saveas2 doc filename)
           ;; Adatok beillesztése táblázatból
           (fill-template doc xarray obj)
           ;; Formázások
-          (cclet* ((sect-trg (?last (?sections doc)))
-                   (pri-head (!item (?headers sect-trg) +wd-header-footer-primary+))
-                   (pg-nums  (?pagenumbers pri-head))
-                   (pg-setup (?pagesetup sect-trg)))
-            (setf (?text (?range pri-head)) "")                ; Meglévõ elsõdleges fejléc szövegének törlése
-            (!add pg-nums +wd-align-page-number-center+ nil)   ; Oldalszámozás középre
-            (setf (?restartnumberingatsection pg-nums) t       ; Oldalszámozás újrakezdése szakaszonként
-                  (?startingnumber pg-nums) 1                  ; Oldalszámozás kezdése 1-tõl (elsõ o. beleszámítva)
-                  (?differentfirstpageheaderfooter pg-setup) t ; Elsõ oldalon eltérõ fejléc/lábléc
-                  (?mirrormargins pg-setup) t)                  ; Tükörmargók
-            (cclet* ((head  (!item (?headers sect-trg) +wd-header-footer-primary+))
-                     (headr (?range head)))
-              (setf (?alignment (?paragraphformat headr)) +wd-align-paragraph-center+
-                    (?name (?font headr)) "Times New Roman"
-                    (?size (?font headr)) 12)))
+          (cclet* ((sect-trg (?'last (?'sections doc)))
+                   (pri-head (!'item (?'headers sect-trg) +wd-header-footer-primary+))
+                   (pg-nums  (?'pagenumbers pri-head))
+                   (pg-setup (?'pagesetup sect-trg)))
+            (setf (?'text (?'range pri-head)) "")               ; Meglévõ elsõdleges fejléc szövegének törlése
+            (!'add pg-nums +wd-align-page-number-center+ nil)    ; Oldalszámozás középre
+            (setf (?'restartnumberingatsection pg-nums) t       ; Oldalszámozás újrakezdése szakaszonként
+                  (?'startingnumber pg-nums) 1                  ; Oldalszámozás kezdése 1-tõl (elsõ o. beleszámítva)
+                  (?'differentfirstpageheaderfooter pg-setup) t ; Elsõ oldalon eltérõ fejléc/lábléc
+                  (?'mirrormargins pg-setup) t)                 ; Tükörmargók
+            (cclet* ((head  (!'item (?'headers sect-trg) +wd-header-footer-primary+))
+                     (headr (?'range head)))
+              (setf (?'alignment (?'paragraphformat headr)) +wd-align-paragraph-center+
+                    (?'name (?'font headr)) "Times New Roman"
+                    (?'size (?'font headr)) 12)))
           t))))) ; Ez kell? Ugyis visszaadnánk az elõzõ SETF értékét!
 
 
@@ -889,7 +893,7 @@
                 ;; Személyi kör sorok.
                 (let ((tk-ps-only (xaselect tk-only #'(lambda (row) (astring= (xcref row "SZK") ps)))))
                   (process-ps obj tk-ps-only ps word))))))))
-    (!quit word)))
+    (!'quit word)))
 
 
 ;;; ----------------------------------------------------------------------
@@ -928,7 +932,7 @@
 ;;; main();
 (defun start ()
   (in-package :wax)
-  (let ((obj (make-instance 'wax-script :execute-fn #'process)))
+  (let ((obj (make-instance 'wax-app :execute-fn #'process)))
     (init-obj-state obj)
     (load-state obj)
     ;; Fõablak létrehozása
@@ -1049,7 +1053,7 @@
                                            (merge-pathnames *xls-tks-filename*
                                                             (get-state obj :doctemp-dir))))
                 ;; Szkript végrehajtása.
-                (wax-execute obj :errorsink-on t)
+                (wax-execute obj :errorsink-on nil)
                 ;; Adatforrások eldobása.
                 (dolist (key '(:main :tks :filenum :kir :prevrels))
                   (remove-data-source obj key))))))))))
@@ -1058,3 +1062,16 @@
 
 ;;; ----------------------------------------------------------------------
 ;;; Sandbox
+
+
+
+
+
+
+
+
+
+
+
+
+#.(disable-ccom-syntax)

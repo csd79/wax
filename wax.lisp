@@ -17,7 +17,7 @@
    (loaded-p
     :accessor loaded-p
     :initform nil))
-  (:documentation "Data sources used during script execution."))
+  (:documentation "Data sources used during app execution."))
 
 (defmethod load-src ((obj data-source) &optional (header-height 1))
   (with-slots ((filename filename)) obj
@@ -27,7 +27,8 @@
       (setf (data obj)
             (with-workbook (:open filename :read-only t :wsvars (wsheet) :close t)
               (read-xarray (used-range wsheet) :from-row (1+ header-height)))
-            (loaded-p obj) t))))
+            (loaded-p obj) t)
+      )))
 
 (defmethod purge ((obj data-source))
   (setf (data obj) nil
@@ -41,11 +42,11 @@
 
 
 ;; ======================================================================
-;; Script state class
+;; App state class
 
-(defparameter *state-file* "state" "Textfile to store script state between runs.")
+(defparameter *state-file* "state" "Textfile to store app state between runs.")
 
-(defclass wax-script ()
+(defclass wax-app ()
   ((state
     :initarg :state
     :accessor state)
@@ -73,26 +74,26 @@
    (errordumps
     :accessor errordumps
     :initform '()))
-  (:documentation "Wax script environment."))
+  (:documentation "Wax app environment."))
 
 
 ;; ----------------------------------------------------------------------
 ;; Progress window methods
 
-(defmethod disp ((obj wax-script) control-string &rest args)
+(defmethod disp ((obj wax-app) control-string &rest args)
   (apply (disp-fn obj) control-string args))
 
-;(defmethod set-pstep-limit ((obj wax-script) limit)
+;(defmethod set-pstep-limit ((obj wax-app) limit)
 ;  (setf (pstep-limit obj) limit))
 
-(defmethod pstep ((obj wax-script) &key (abs nil) (step 1))
+(defmethod pstep ((obj wax-app) &key (abs nil) (step 1))
   (funcall (pstep-fn obj) :abs abs :step step))
 
-(defmethod pabort ((obj wax-script))
+(defmethod pabort ((obj wax-app))
   "Stop the progress loop by user intent."
   (funcall (pabort-fn obj)))
 
-(defmethod pkill ((obj wax-script))
+(defmethod pkill ((obj wax-app))
   "Stop the progress loop from a WITH-WAX-ERRORSINK clause."
   (funcall (pkill-fn obj)))
 
@@ -100,7 +101,7 @@
 ;; ----------------------------------------------------------------------
 ;; State permanency & handling
 
-(defmethod save-state ((obj wax-script) &key (package-name "WAX") (keys '() keys-provided-p))
+(defmethod save-state ((obj wax-app) &key (package-name "WAX") (keys '() keys-provided-p))
   (let* ((filename (appfile *state-file* package-name))
          (state    (state obj))
          (plist    (if keys-provided-p
@@ -110,7 +111,7 @@
       (hide-file filename nil))
     (save-forms filename plist)))
 
-(defmethod load-state ((obj wax-script) &key (package-name "WAX") (keys '() keys-provided-p))
+(defmethod load-state ((obj wax-app) &key (package-name "WAX") (keys '() keys-provided-p))
   (let ((filename (appfile *state-file* package-name))
         (news     '()))
     (when (probe-file filename)
@@ -122,10 +123,10 @@
               news))
       (hide-file filename t))))
 
-(defmethod init-state ((obj wax-script) &rest plist)
+(defmethod init-state ((obj wax-app) &rest plist)
   (setf (state obj) plist))
 
-(defmethod get-state ((obj wax-script) key)
+(defmethod get-state ((obj wax-app) key)
   (getf (state obj) key))
 
 (defun (setf get-state) (value obj key)
@@ -135,31 +136,31 @@
 ;; ----------------------------------------------------------------------
 ;; Handling data sources
 
-(defmethod add-data-source ((obj wax-script) key filename)
+(defmethod add-data-source ((obj wax-app) key filename)
   (setf (data-sources obj)
         (override-pairs
          (data-sources obj)
          (list key (make-instance 'data-source :filename filename)))))
 
-(defmethod remove-data-source ((obj wax-script) key)
+(defmethod remove-data-source ((obj wax-app) key)
   (setf (data-sources obj)
         (remove-pairs (data-sources obj) (list key))))
 
-(defmethod load-data-source ((obj wax-script) key &optional (header-height 1))
+(defmethod load-data-source ((obj wax-app) key &optional (header-height 1))
   (load-src (getf (data-sources obj) key) header-height))
 
-(defmethod purge-data-source ((obj wax-script) key)
+(defmethod purge-data-source ((obj wax-app) key)
   (purge (getf (data-sources obj) key)))
 
-(defmethod select-row-from ((obj wax-script) key selector-fn)
+(defmethod select-row-from ((obj wax-app) key selector-fn)
   (let ((data-source (getf (data-sources obj) key)))
     (when (loaded-p data-source)
       (select-row data-source selector-fn))))
 
-(defmethod source-filename ((obj wax-script) key)
+(defmethod source-filename ((obj wax-app) key)
   (filename (getf (data-sources obj) key)))
 
-(defmethod source-data ((obj wax-script) key)
+(defmethod source-data ((obj wax-app) key)
   (data (getf (data-sources obj) key)))
 
 
@@ -168,52 +169,52 @@
 
 
 ;; General
-(defmethod queue-message ((obj wax-script) getter setter string)
+(defmethod queue-message ((obj wax-app) getter setter string)
   (funcall setter (cons string (funcall getter obj)) obj))
 
-(defmethod messages-waiting-p ((obj wax-script) getter)
+(defmethod messages-waiting-p ((obj wax-app) getter)
   (not (zerop (length (funcall getter obj)))))
 
-(defmethod disp-messages ((obj wax-script) getter)
+(defmethod disp-messages ((obj wax-app) getter)
   (dolist (message (reverse (funcall getter obj)))
     (disp obj message))
   (disp obj "~6%"))
 
-(defmethod purge-messages ((obj wax-script) setter)
+(defmethod purge-messages ((obj wax-app) setter)
   (funcall setter '() obj))
 ;  (setf (funcall accessor obj) '()))
 
 
 ;; Errorlogs
-(defmethod queue-errorlog ((obj wax-script) string)
+(defmethod queue-errorlog ((obj wax-app) string)
   (queue-message obj #'errorlogs #'(setf errorlogs) string))
 
-(defmethod errorlogs-waiting-p ((obj wax-script))
+(defmethod errorlogs-waiting-p ((obj wax-app))
   (messages-waiting-p obj #'errorlogs))
 
-(defmethod disp-errorlogs ((obj wax-script))
+(defmethod disp-errorlogs ((obj wax-app))
   (disp-messages obj #'errorlogs))
 
-(defmethod purge-errorlogs ((obj wax-script))
+(defmethod purge-errorlogs ((obj wax-app))
   (purge-messages obj #'(setf errorlogs)))
 
 
 ;; Errordumps
-(defmethod queue-errordump ((obj wax-script) string)
+(defmethod queue-errordump ((obj wax-app) string)
   (queue-message obj #'errordumps #'(setf errordumps) string))
 
-(defmethod errordumps-waiting-p ((obj wax-script))
+(defmethod errordumps-waiting-p ((obj wax-app))
   (messages-waiting-p obj #'errordumps))
 
-(defmethod disp-errordumps ((obj wax-script))
+(defmethod disp-errordumps ((obj wax-app))
   (disp-messages obj #'errordumps))
 
-(defmethod purge-errordumps ((obj wax-script))
+(defmethod purge-errordumps ((obj wax-app))
   (purge-messages obj #'(setf errordumps)))
 
 
 ;; Dump both streams into a single string.
-(defmethod fulldump ((obj wax-script))
+(defmethod fulldump ((obj wax-app))
   (when (errorlogs-waiting-p obj)
     (let ((fd (make-string-output-stream))
           (big-sep (format nil "~a~%~a~%~a~%~a~%~a"
@@ -236,84 +237,17 @@
 ;; ----------------------------------------------------------------------
 ;; Execution
 
-(defmethod set-execute-fn ((obj wax-script) fn)
-  (setf (efecute-fn obj) fn))
+(defmethod set-execute-fn ((obj wax-app) fn)
+  (setf (execute-fn obj) fn))
 
-;; EZT NEM HASZNÁLJUK, KELL ???
-#|(defmethod init-wax-script ((obj wax-script) &key
-                            (state '())
-                            (errorsink-on nil)
-                            (prop-accessors-on t)
-                            (execute-fn nil))
-  (init-state obj state)
-  (setf (errorsink-on) errorsink-on)
-  (setf (property-accessors-on) prop-accessors-on)
-  (set-execute-fn obj execute-fn))|#
-
-(defmethod wax-execute ((obj wax-script) &key (errorsink-on nil) (property-accessors-on t))
+(defmethod wax-execute ((obj wax-app) &key (errorsink-on nil))
+  "Start the function stored in the EXECUTE-FN slot of OBJ with the errorsink active or not."
   (with-wax-errorsink obj
-    (with-property-accessors
-      (setf (errorsink-on) errorsink-on
-            (property-accessors-on) property-accessors-on)
-      (funcall (execute-fn obj) obj))))
+    (setf (errorsink-on) errorsink-on)
+    (funcall (execute-fn obj) obj)))
 
 
 ;; ----------------------------------------------------------------------
 ;; Sandbox
 
-#|(defun jj ()
-  (let ((script (make-instance
-                 'wax-script
-                 :state '(:a 1 :b 2 :c 3 :d 4 :e 5 :f 6)
-                 :execute-fn #'(lambda (obj)
-                                 (with-progress-new ("Hihi" obj (/ (length (state obj)) 2))
-                                   (loop for (k v) on (state obj) by #'cddr doing
-                                         (disp obj "~a  ~a~%" k v)
-                                         (disp obj "~a~%" (get-state obj k))
-                                         (setf (get-state obj k) "Grr")
-                                         (disp obj "~a~%" (get-state obj k))
-                                         (pstep obj)
-                                         (pabort obj)
-                                         (sleep 1)))
-                                 (save-state obj)))))
-    (wax-execute script)))|#
 
-
-#|(defun kk ()
-  (let* ((file "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\TK vezetõk.xlsx")
-         (obj  (make-instance 'data-source :filename file)))
-    (print (loaded-p obj))
-    (load-src obj)
-    (print (loaded-p obj))
-    (let ((row (select-row obj #'(lambda (row)
-                                   (astring= (xcref row "TK") "Észak-Pesti Tankerületi Központ")))))
-      (print (xcref row "Helységnév")))))|#
-
-
-#|(defun ll ()
-  (let ((obj (make-instance
-              'wax-script
-              :state '(:a 1 :b 2 :c 3 :d 4 :e 5 :f 6)
-              :execute-fn
-              #'(lambda (obj)
-                  (with-progress-new ("Haladás!" obj 2)
-                    (disp obj "KIR tábla betöltése~%")
-                    (load-data-source obj :kir)
-                    (let ((row (select-row-from
-                                obj :kir #'(lambda (row)
-                                             (and (= (parse-number (xcref row "OM azonosító"))
-                                                     40003)
-                                                  (= (parse-number (xcref row "A feladatellátási hely sorszáma"))
-                                                     5))))))
-                      (disp obj "Eredmény: ~a~%" (xcref row "A feladatellátási hely pontos címe")))
-                    (disp obj "TK vezetõ tábla betöltése~%")
-                    (load-data-source obj :tks)
-                    (let ((row (select-row-from
-                                obj :tks
-                                #'(lambda (row)
-                                    (string= (xcref row "TK") "Szigetszentmiklósi Tankerületi Központ")))))
-                      (disp obj "Eredmény: ~a~%" (xcref row "Gazdasági vez.")))
-                    (sleep 5))))))
-    (add-data-source obj :kir "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\kir_mukodo_feladatellatasi_helyek_2025_01_06.xlsx")
-    (add-data-source obj :tks "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\TK vezetõk.xlsx")
-    (wax-execute obj)))|#

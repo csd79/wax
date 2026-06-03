@@ -14,3 +14,7 @@ B2, B8 és B9 személyi körök dokumentumainál az első oldalon lévő szült�
 Lekérdezés
 A neve "...kinevezésmódosításhoz++". De minden iratfajtához ez használatos.
 [MÁR NEM EZ A NEVE!]
+
+
+
+Hibakezelés: ha a generálási folyamat előtt/után keletkezik hiba, akkor a régi módon jelzi, ha KÖZBEN, akkor átugorja a hibás SZTSZ-eket és a folyamat végén megjeleníti a hibák olvashatóbb részleteit, és ekkor menthetjük az összes hiba dumpját. És már tud küldést.

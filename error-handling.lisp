@@ -2,6 +2,7 @@
                                                                               ;
 
 (in-package #:wax)
+#.(enable-ccom-syntax)
 
 
 ;; ----------------------------------------------------------------------
@@ -39,7 +40,7 @@
 ;;; For general errors & conditions, give the condition message or type.
 (defun condition-string (condition)
   (list :data (typecase condition
-                (string           condition)
+                (string             condition)
                 (arithmetic-error   (format nil "Aritmetikai hiba. Függvény: \"~a\", paraméterek: ~a."
                                             (arithmetic-error-operation condition)
                                             (arithmetic-error-operands condition)))
@@ -87,7 +88,8 @@
          (format nil ,ctrl-string ,@params))))
 
 
-(defparameter *noskip-classes* '(wax-skipped undefined-function)) ; kludge exception for CCOM-ACCESSORS
+#|(defparameter *noskip-classes* '(wax-skipped undefined-function)) ; kludge exception for CCOM-ACCESSORS|#
+(defparameter *noskip-classes* '(wax-skipped))
 
 
 (defun skippable-handler (messenger skip-to)
@@ -221,7 +223,13 @@
 (defun b ()
   (with-wax-errorsink
     (with-document (:doc doc :open "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\Kinevezések\\Pedagógus_kinevezési okmány_xxx.docx" :read-only t)
-      (cclet* ((content (?content doc))
-               (text    (?text content)))
+      (cclet* ((content (?'content doc))
+               (text    (?'text content)))
         (format t "~a~%~%" text)))))
 
+
+
+
+
+
+#.(disable-ccom-syntax)

@@ -7,14 +7,14 @@
 (in-package "WAX")
 (setf *independent-exe* t)
 (lw:deliver 'start
-    "c:\\Users\\cselovszkid\\common-lisp\\wax\\kinevgen_v0.44.exe"
+    "c:\\Users\\cselovszkid\\common-lisp\\wax\\kinevgen_v0.45.exe"
     5
     :interface :capi
     :console :io
     :multiprocessing t
     :icon-file "c:\\Users\\cselovszkid\\common-lisp\\wax\\img\\wax.ico"
     :keep-symbols '(*appdir* *independent-exe*)
-    :packages-to-keep-externals '(wax msoffice) ; fn-s called indirectly
+    :packages-to-keep-externals '(wax ccoffice) ; fn-s called indirectly
     :keep-package-manipulation t
     :keep-function-name :all
     :keep-eval t
