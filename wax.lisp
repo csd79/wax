@@ -19,7 +19,7 @@
     :initform nil))
   (:documentation "Data sources used during app execution."))
 
-(defmethod load-src ((obj data-source) &optional (header-height 1))
+#|(defmethod load-src ((obj data-source) &optional (header-height 1))
   (with-slots ((filename filename)) obj
     (when (and filename
                (string/= filename "")
@@ -28,7 +28,16 @@
             (with-workbook (:open filename :read-only t :wsvars (wsheet) :close t)
               (read-xarray (used-range wsheet) :from-row (1+ header-height)))
             (loaded-p obj) t)
-      )))
+      )))|#
+(defmethod load-src ((obj data-source) &key (first-row 2) (header-row (1- first-row)))
+  (with-slots ((filename filename)) obj
+    (when (and filename
+               (string/= filename "")
+               (probe-file filename))
+      (setf (data obj)
+            (with-workbook (:open filename :read-only t :wsvars (wsheet) :close t)
+              (read-xarray (used-range wsheet) :from-row first-row :header-row header-row))
+            (loaded-p obj) t))))
 
 (defmethod purge ((obj data-source))
   (setf (data obj) nil
@@ -101,7 +110,8 @@
 ;; ----------------------------------------------------------------------
 ;; State permanency & handling
 
-(defmethod save-state ((obj wax-app) &key (package-name "WAX") (keys '() keys-provided-p))
+;(defmethod save-state ((obj wax-app) &key (package-name "WAX") (keys '() keys-provided-p))
+(defmethod save-state ((obj wax-app) &key (package-name nil) (keys '() keys-provided-p))
   (let* ((filename (appfile *state-file* package-name))
          (state    (state obj))
          (plist    (if keys-provided-p
@@ -111,12 +121,13 @@
       (hide-file filename nil))
     (save-forms filename plist)))
 
-(defmethod load-state ((obj wax-app) &key (package-name "WAX") (keys '() keys-provided-p))
+;(defmethod load-state ((obj wax-app) &key (package-name "WAX") (keys '() keys-provided-p))
+(defmethod load-state ((obj wax-app) &key (package-name nil) (keys '() keys-provided-p))
   (let ((filename (appfile *state-file* package-name))
         (news     '()))
     (when (probe-file filename)
       (hide-file filename nil)
-      (setf news (load-forms filename))
+      (setf news (first (load-forms filename)))
       (setf (state obj)
             (if keys-provided-p
               (override-pairs (state obj) (keep-pairs news keys))
@@ -132,6 +143,16 @@
 (defun (setf get-state) (value obj key)
   (setf (getf (state obj) key) value))
 
+(defmethod trim-state ((obj wax-app) key)
+  (remf (state obj) key))
+
+(defmethod load-descriptives ((obj wax-app) file &rest keys)
+  (let* ((length (length keys))
+         (forms  (load-forms file :count length)))
+    (loop for key in keys
+          for form in forms doing
+          (setf (get-state obj key) form))))
+
 
 ;; ----------------------------------------------------------------------
 ;; Handling data sources
@@ -146,8 +167,10 @@
   (setf (data-sources obj)
         (remove-pairs (data-sources obj) (list key))))
 
-(defmethod load-data-source ((obj wax-app) key &optional (header-height 1))
-  (load-src (getf (data-sources obj) key) header-height))
+#|(defmethod load-data-source ((obj wax-app) key &optional (header-height 1))
+  (load-src (getf (data-sources obj) key) header-height))|#
+(defmethod load-data-source ((obj wax-app) key &key (first-row 2) (header-row (1- first-row)))
+  (load-src (getf (data-sources obj) key) :first-row first-row :header-row header-row))
 
 (defmethod purge-data-source ((obj wax-app) key)
   (purge (getf (data-sources obj) key)))
@@ -240,11 +263,11 @@
 (defmethod set-execute-fn ((obj wax-app) fn)
   (setf (execute-fn obj) fn))
 
-(defmethod wax-execute ((obj wax-app) &key (errorsink-on nil))
+(defmethod wax-execute ((obj wax-app) errorsink-on &rest args)
   "Start the function stored in the EXECUTE-FN slot of OBJ with the errorsink active or not."
   (with-wax-errorsink obj
     (setf (errorsink-on) errorsink-on)
-    (funcall (execute-fn obj) obj)))
+    (apply (execute-fn obj) obj args)))
 
 
 ;; ----------------------------------------------------------------------

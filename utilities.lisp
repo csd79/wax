@@ -1,4 +1,4 @@
-;;; -*- Mode: Common-Lisp; Author: denes.cselovszky@gmail.com -*-
+;;;; -*- Mode: Common-Lisp; Author: denes.cselovszky@gmail.com -*-
 
 
 (in-package :wax)
@@ -17,6 +17,19 @@
 (defparameter *appdir* "wax")
 
 
+#|(defun appdir (&optional package-name)
+  "Namestring of the directory containing wax."
+  (let ((package-name* (cond ((packagep package-name)
+                              (package-name package-name))
+                             ((stringp package-name)
+                              (string-upcase package-name))
+                             (t (package-name *package*)))))
+    (if (symbol-value (find-symbol "*INDEPENDENT-EXE*" package-name*))
+      (namestring (lw:current-pathname))
+      (concatenate 'string (user-homedir)
+                   "common-lisp\\"
+                   (symbol-value (find-symbol "*APPDIR*" package-name*))
+                   "\\"))))|#
 (defun appdir (&optional package-name)
   "Namestring of the directory containing wax."
   (let ((package-name* (cond ((packagep package-name)
@@ -26,10 +39,13 @@
                              (t (package-name *package*)))))
     (if (symbol-value (find-symbol "*INDEPENDENT-EXE*" package-name*))
       (namestring (lw:current-pathname ))
-      (concatenate 'string (user-homedir)
-                   "common-lisp\\"
-                   (symbol-value (find-symbol "*APPDIR*" package-name*))
-                   "\\"))))
+      (let ((appdir (find-symbol "*APPDIR*" package-name*)))
+        (concatenate 'string (user-homedir)
+                     "common-lisp\\"
+                     (if appdir
+                       (symbol-value appdir)
+                       package-name*)
+                     "\\")))))
 
 
 (defun user-tempdir ()
@@ -90,20 +106,30 @@
 
 
 
-(defun appfile (file &optional (package-name "WAX"))
+;(defun appfile (file &optional (package-name "WAX"))
+(defun appfile (file &optional (package-name nil))
   "Namestring of FILE inside wax's directory."
   (merge-pathnames file (appdir package-name)))
 
-(defun load-forms (file)
+#|(defun load-forms/ (file)
   "Load Lisp forms from FILE into a list."
   (with-open-file (in file
                       :direction :input
                       :if-does-not-exist nil)
     (when in
       (read in nil))))
-#|      (loop for f = (read in nil)
-            until (null f)
-            collecting f))))|#
+;      (loop for f = (read in nil)
+;            until (null f)
+;            collecting f))))|#
+(defun load-forms (file &key (count nil) (load-all t))
+  "Load Lisp forms from FILE."
+  (with-open-file (stream file :direction :input :external-format :default)
+    (loop for form = (read stream nil :eof)
+          until (cond (count  (zerop (1+ (decf count))))
+                      (load-all (eq form :eof))
+                      (t        t))
+          collect form into results
+          finally (return results))))
 
 (defun save-forms (file &rest forms)
   "Save Lisp forms from FORMS into FILE."
@@ -398,6 +424,40 @@
          (decompose-phone-number
           (trim-phone-number string)))
       string)))
+
+
+;; ----------------------------------------------------------------------
+;; Loading &evaluating forms at runtime
+
+
+;(defparameter ff "C:\\Users\\cselovszkid\\Downloads\\grr.lisp")
+
+
+(defun eval-definition (expr)
+  "Evaluate a DEFVAR or DEFPARAMETER form in the current package."
+  (eval (eval expr)))
+
+(defun lambda-expr-p (expr)
+  "Is EXPR a lambda expression?"
+  (and (listp expr)
+       (eq (first expr) 'lambda)
+       (listp (second expr))))
+
+(deftype lambda-expr ()
+  '(satisfies lambda-expr-p))
+
+(defun compiled-fn (expr)
+  "Return a function designated by EXPR, which is either a function name or a lambda expression (in the later case, also compule it)."
+  (let ((expr% (typecase expr
+                 (symbol (symbol-function expr))
+                 (function expr)
+                 (lambda-expr expr)
+                 (otherwise (error "~a is not a function name or lambda expression." expr)))))
+    (typecase expr%
+      (compiled-function expr%)
+      (function (compile nil expr%))
+      (lambda-expr (compile nil expr%))
+      (otherwise (error "~a is not a function." expr%)))))
 
 
 ;; ----------------------------------------------------------------------

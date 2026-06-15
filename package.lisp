@@ -7,7 +7,6 @@
 (defpackage #:wax
   (:use #:cl #:ccom4 #:achar #:ccoffice)
   (:export
-   #:start
    #:appdir
    #:user-homedir
    #:user-tempdir
@@ -38,8 +37,16 @@
    #:clean-name
    #:add-article
    #:fix-phone-number
+
+   #:eval-definition
+   #:lambda-expr
+   #:compiled-fn
+
    #:line
+
    #:with-progress
+   #:with-progress-new
+
    #:wg-text-input
    #:wg-file-selector
    #:wg-dir-selector
@@ -49,8 +56,14 @@
    #:wg-msg
    #:wg-floating-message
    #:wg-confirm
+
+   #:backtrace->string
+   #:defmessenger
+   #:skippable
    #:errorsink-on
+   #:skip
    #:with-wax-errorsink
+
    #:data-source
    #:filename
    #:data
@@ -74,6 +87,8 @@
    #:load-state
    #:init-state
    #:get-state
+   #:trim-state
+   #:load-descriptives
    #:add-data-source
    #:remove-data-source
    #:load-data-source

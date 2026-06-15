@@ -118,17 +118,6 @@
   (setf *errorsink-on* (not (not value))))
 
 
-#|(defun dispatch-wg-errordial (details control-string &rest keys)
-  "Call WF-ERRORDIAL with generated error message and details."
-  (let ((vals (when details
-                (mapcar #'(lambda (key)
-                            (getf details key)) keys))))
-    (wg-errordial (apply #'format nil control-string vals)
-                  (append details
-                          (list :backtrace
-                                (backtrace->string 2))))))|#
-
-
 (defun construct-errorlog (condition details-fn ctrl-string keys)
   "Construct message to be stored in the errorlog queue."
   (let* ((details (funcall details-fn condition))
@@ -145,8 +134,8 @@
       (pkill obj)
       (queue-errorlog obj (construct-errorlog condition details-fn ctrl-string keys))
       (queue-errordump obj (backtrace->string 2))
-      (wg-errordial obj)) ;     <-------------------------------------------------------------!!!!!!!!
-      (throw 'sinked nil)))
+      (wg-errordial obj)
+      (throw 'sinked nil))))
 
 
 (defun skip (obj)
@@ -173,47 +162,6 @@
                     (condition
                      (kill-n-sink ,obj #'condition-string "Váratlan állapot: ~a" :data)))
        ,@body)))
-#|(defmacro with-wax-errorsink (obj &body body)
-  `(catch 'sinked
-     (handler-bind ((com:com-dispatch-invoke-exception-error
-                     #'(lambda (error)
-                         (when *errorsink-on*
-                           (pkill ,obj)
-                           (dispatch-wg-errordial
-                            (com-dispatch-invoke-exception-error-details error)
-                            "~a: ~a: ~a" :source :method-name :description)
-                           (throw 'sinked nil))))
-                    (com:com-error
-                     #'(lambda (error)
-                         (when *errorsink-on*
-                           (pkill ,obj)
-                           (dispatch-wg-errordial
-                            (com-error-details error)
-                            "Hiba: hresult: ~a; függvény: ~a" :hresult :fn-name)
-                           (throw 'sinked nil))))
-                    (error
-                     #'(lambda (error)
-                         (when *errorsink-on*
-                           (pkill ,obj)
-                           (dispatch-wg-errordial
-                            (condition-string error)
-                            "Hiba: ~a" :data)
-                           (throw 'sinked nil))))
-                    (wax-skipped
-                     #'(lambda (condition)
-                         (queue-errorlog obj (errorlog condition))
-                         (queue-errordump obj (errordump condition))
-                         (throw (throw-point condition) nil)))
-                    (condition
-                     #'(lambda (condition)
-                         (when *errorsink-on*
-                           (pkill ,obj)
-                           (dispatch-wg-errordial
-                            (condition-string condition)
-                            "Váratlan állapot: ~a" :data)
-                           (throw 'sinked nil)))))
-       ,@body)))|#
-
 
 
 ;; ----------------------------------------------------------------------
