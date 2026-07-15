@@ -53,6 +53,7 @@
    #:wg-options
    #:wg-button
    #:wg-window
+   #:wg-login
    #:wg-msg
    #:wg-floating-message
    #:wg-confirm
