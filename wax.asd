@@ -5,10 +5,7 @@
   :depends-on  ("cl-ppcre" "local-time" "str" "achar" "ccom4" "ccoffice" "cref")
   :serial      t
   :components  ((:file "package")
-;                (:file "fli-templates")
                 (:file "utilities")
                 (:file "gui")
                 (:file "error-handling")
-                (:file "wax")
-;                (:file "script")
-				))
+                (:file "classes")))
