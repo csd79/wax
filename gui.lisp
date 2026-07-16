@@ -323,7 +323,7 @@
    :selected default))
 
 
-(defun wg-window (title best-width max-height &rest list)
+#|(defun wg-window (title best-width max-height &rest list)
   (capi:contain
    (make-instance
     'capi:grid-layout
@@ -333,56 +333,66 @@
    :best-y '(- (/ :screen-height 2) 100)
    :best-width best-width
    :max-height max-height
-   :title title))
+   :title title))|#
+(defun wg-window (contain-args &rest list)
+  (apply #'capi:contain
+   (make-instance
+    'capi:grid-layout
+    :rows (ceiling (/ (length list) 2))
+    :description list)
+   (append contain-args
+           (list :best-x '(- (/ :screen-width 2) 200)
+                 :best-y '(- (/ :screen-height 2) 100)))))
 
 
-(defun wg-login (title store-results-fn &key (username nil))
-  (let* ((username* username)
-         (password* nil)
-         (username-text-pane (wg-text-input
-                              #'(lambda (text &rest rest)
-                                  (declare (ignore rest))
-                                  (setf username* text))
-                              username*))
-         (password-text-pane (wg-password-input
-                              #'(lambda (text interface)
-                                  (setf password* text)
-                                  (capi:destroy interface)
-                                  (funcall store-results-fn username* password*))
-                              #'(lambda (text &rest rest)
-                                  (declare (ignore rest))
-                                  (setf password* text))
-                              "")))
-    (capi:contain
-     (make-instance
-      'capi:grid-layout
-      :rows 3
-      :description
-      (list " Felhasználónév"
-            username-text-pane
-            " Jelszó"
-            password-text-pane
-            (make-instance
-             'capi:push-button-panel
-             :items '("OK" "Mégsem")
-             :selection-callback #'(lambda (data interface)
-                                     (capi:destroy interface)
-                                     (apply store-results-fn
-                                            (if (string= data "OK")
-                                              (list username* password*)
-                                              (list username* nil)))))))
-     :best-x '(- (/ :screen-width 2) 200)
-     :best-y '(- (/ :screen-height 2) 100)
-     :title title
-     :best-width 200
-     :max-height 80
-     :destroy-callback #'(lambda (interface)
-                           (declare (ignore interface))
-                           (funcall store-results-fn username* nil))
-     :initial-focus (if username
-                      password-text-pane
-                      username-text-pane))))
-            
+(defun wg-login (title &optional (username nil))
+  (block login
+    (let* ((username* username)
+           (password* nil)
+           (username-text-pane (wg-text-input
+                                #'(lambda (text &rest rest)
+                                    (declare (ignore rest))
+                                    (setf username* text))
+                                username*))
+           (password-text-pane (wg-password-input
+                                #'(lambda (text interface)
+                                    (setf password* text)
+                                    (capi:destroy interface)
+                                    (return-from login (values username* password*)))
+                                #'(lambda (text &rest rest)
+                                    (declare (ignore rest))
+                                    (setf password* text))
+                                "")))
+      (capi:contain
+       (make-instance
+        'capi:grid-layout
+        :rows 3
+        :description
+        (list " Felhasználónév"
+              username-text-pane
+              " Jelszó"
+              password-text-pane
+              (make-instance
+               'capi:push-button-panel
+               :items '("OK" "Mégsem")
+               :selection-callback #'(lambda (data interface)
+                                       (capi:destroy interface)
+                                       (if (string= data "OK")
+                                         (return-from login (values username* password*))
+                                         (return-from login (values username* nil)))))))
+       :best-x '(- (/ :screen-width 2) 200)
+       :best-y '(- (/ :screen-height 2) 100)
+       :title title
+       :best-width 200
+       :max-height 80
+       :window-styles '(:borderless); :always-on-top)
+       :initial-focus (if (and username
+                               (stringp username)
+                               (string/= username ""))
+                        password-text-pane
+                        username-text-pane)
+       :as-dialog :no-escape-button))))
+
 
 (defun wg-msg (string &rest rest)
   (apply #'capi:display-message string rest))
