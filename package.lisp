@@ -5,9 +5,9 @@
 
 
 (defpackage #:wax
-  (:use #:cl #:ccom4 #:achar #:ccoffice)
+  (:use #:cl #:utils #:ccom4 #:achar #:ccoffice)
   (:export
-   #:appdir
+#|   #:appdir
    #:user-homedir
    #:user-tempdir
    #:random-alphanumeric-string
@@ -42,7 +42,10 @@
    #:lambda-expr
    #:compiled-fn
 
-   #:line
+   #:with-local-copies
+
+   #:file-in-dir
+   #:line|#
 
    #:with-progress
    #:with-progress-new
@@ -61,7 +64,7 @@
    #:backtrace->string
    #:defmessenger
    #:skippable
-   #:errorsink-on
+;   #:errorsink-on
    #:skip
    #:with-wax-errorsink
 
@@ -74,6 +77,7 @@
    #:select-row
    #:wax-app
    #:state
+   #:errorsink-enabled-p
    #:execute-fn
    #:disp-fn
    #:pstep-limit
@@ -99,5 +103,7 @@
    #:source-data
    #:set-execute-fn
    #:init-wax-app
+   #:enable-errorsink
+   #:disable-errorsink
    #:wax-execute
    ))

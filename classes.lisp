@@ -59,6 +59,9 @@
   ((state
     :initarg :state
     :accessor state)
+   (errorsink-enabled
+    :initarg :errorsink-enabled
+    :accessor errorsink-enabled-p)
    (execute-fn
     :initarg :execute-fn
     :accessor execute-fn)
@@ -260,14 +263,24 @@
 ;; ----------------------------------------------------------------------
 ;; Execution
 
+(defmethod enable-errorsink ((obj wax-app))
+  (setf (errorsink-enabled-p obj) t))
+
+(defmethod disable-errorsink ((obj wax-app))
+  (setf (errorsink-enabled-p obj) nil))
+
 (defmethod set-execute-fn ((obj wax-app) fn)
   (setf (execute-fn obj) fn))
 
-(defmethod wax-execute ((obj wax-app) errorsink-on &rest args)
+(defmethod wax-execute ((obj wax-app) &key (errorsink-on t) (args '()))
   "Start the function stored in the EXECUTE-FN slot of OBJ with the errorsink active or not."
+  (if errorsink-on
+    (enable-errorsink obj)
+    (disable-errorsink obj))
   (with-wax-errorsink obj
-    (setf (errorsink-on) errorsink-on)
-    (apply (execute-fn obj) obj args)))
+    (funcall (execute-fn obj) obj args)))
+
+
 
 
 ;; ----------------------------------------------------------------------

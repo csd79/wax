@@ -385,7 +385,8 @@
        :title title
        :best-width 200
        :max-height 80
-       :window-styles '(:borderless); :always-on-top)
+;       :window-styles '(:borderless); :always-on-top)
+       :window-styles '(:tool)
        :initial-focus (if (and username
                                (stringp username)
                                (string/= username ""))

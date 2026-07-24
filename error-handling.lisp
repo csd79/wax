@@ -104,18 +104,9 @@
 
 
 (defmacro skippable ((class skip-to messenger) &body body)
-  "Meant to be used inside WITH-WAX-ERRORSINK. If condition of class CLASS happens inside BODY and CLASS is not a member of *NOSKIP-CLASSES*, throw a WAX-SKIPPED condition which will be caught by WITH-WAX-ERRORSINK and cause the string returned by MESSENGER to be added to the progress windows message queues, and then exit to SKIP-TO."
+  "Meant to be used inside WITH-WAX-ERRORSINK. If condition of class CLASS happens inside BODY and CLASS is not a member of *NOSKIP-CLASSES*, it throws a WAX-SKIPPED condition which will be caught by WITH-WAX-ERRORSINK and causes the string returned by MESSENGER to be added to the progress windows message queues; then jumps to SKIP-TO."
   `(handler-bind ((,class (skippable-handler ,messenger ,skip-to)))
      ,@body))
-
-
-(defparameter *errorsink-on* nil "Switch errorsink on/off.")
-
-(defun errorsink-on ()
-  *errorsink-on*)
-
-(defun (setf errorsink-on) (value)
-  (setf *errorsink-on* (not (not value))))
 
 
 (defun construct-errorlog (condition details-fn ctrl-string keys)
@@ -130,12 +121,14 @@
 (defun kill-n-sink (obj details-fn ctrl-string &rest keys)
   "Handler for an unskippable condition."
   (lambda (condition)
-    (when *errorsink-on*
-      (pkill obj)
+    (pkill obj) ;; If we call this only if errorsink is enabled, running without errorsink will not switch the progress window to finished state, and it won't be closeable!!!
+    (when (errorsink-enabled-p obj)
+;      (pkill obj)
       (queue-errorlog obj (construct-errorlog condition details-fn ctrl-string keys))
       (queue-errordump obj (backtrace->string 2))
       (wg-errordial obj)
-      (throw 'sinked nil))))
+      (throw 'sinked nil)
+      )))
 
 
 (defun skip (obj)
@@ -168,12 +161,12 @@
 ;; Sandbox
 
 
-(defun b ()
+#|(defun b ()
   (with-wax-errorsink
     (with-document (:doc doc :open "c:\\Users\\cselovszkid\\common-lisp\\wax\\Munka\\Dokumentumsablonok\\Kinevezések\\Pedagógus_kinevezési okmány_xxx.docx" :read-only t)
       (cclet* ((content (?'content doc))
                (text    (?'text content)))
-        (format t "~a~%~%" text)))))
+        (format t "~a~%~%" text)))))|#
 
 
 
