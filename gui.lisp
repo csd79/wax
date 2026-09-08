@@ -3,230 +3,9 @@
 
 (in-package #:wax)
 (require "shell-objs")
+      
 
 
-;; ----------------------------------------------------------------------
-;; Progress window
-
-
-(capi:define-interface progress ()
-  ((full-dump :accessor full-dump :initarg :full-dump))
-  (:panes
-   ;; Pane to contain text output from the working thread.
-   (text-disp
-    capi:editor-pane
-    :accessor           text-disp
-    :flag               'minimal-example
-    :buffer-name        (:initarg buffer-name)
-    :enabled            :read-only
-    :visible-min-width  '(character 80)
-    :visible-min-height '(character 30)
-    :wrap-style         :split-on-space
-    :vertical-scroll    t)
-   ;; Progress bar.
-   (progress
-    capi:progress-bar
-    :accessor progress
-    :start 0
-    :end 100)
-   (rest-time
-    capi:title-pane
-    :accessor rest-time
-    :text "")
-   (abort-button
-    capi:push-button
-    :accessor abort-button
-    :text "Megszakítás"
-    :callback-type :interface
-    :callback (:initarg abort-callback))
-   (messages-button
-    capi:push-button
-    :accessor messages-button
-    :text "Hibajelzés küldése/mentése"
-    :callback-type :interface
-    :callback (:initarg messages-callback)
-    :enabled nil)
-   (close-button
-    capi:push-button
-    :accessor close-button
-    :text "Bezárás"
-    :callback-type :interface
-    :callback (:initarg close-callback)
-    :enabled nil)
-   )
-  (:layouts
-   (upper capi:column-layout '(text-disp progress rest-time))
-   (lower capi:row-layout '(abort-button messages-button close-button))
-   (window capi:column-layout '(upper lower)))
-  (:default-initargs
-   :title "Feldolgozás"
-   :best-x 735
-   :best-y 400
-   :layout 'window
-   :confirm-destroy-function (lambda (interface)
-                               (capi:button-enabled (close-button interface)))
-#|                                 (if (capi:button-enabled (close-button interface))
-                                   (progn
-                                     (push "T" sig::g)
-                                     t)
-                                   (progn
-                                     (let ((fn (capi:button-press-callback (abort-button interface))))
-                                       (funcall (capi:button-press-callback (abort-button interface))
-                                                interface)
-                                       (push fn sig::g))
-                                     nil)))|#
-   :window-styles '(
-                    ;:borderless
-                    ;:shadowed
-                    ;:movable-by-window-background
-                    )
-   ))
-
-
-#|(defun send-messages (obj)
-  (declare (ignore obj))
-  (wg-msg "Összegyûlt üzenetek küldése nekem.")
-  )|#
-
-
-(defun timestr (secs)
-  (let* ((hours (truncate (/ secs 3600)))
-         (rem1  (- secs (* hours 3600)))
-         (mins  (truncate (/ rem1 60)))
-         (secs  (- rem1 (* mins 60)))
-         (accum '()))
-    (unless (zerop hours)
-      (push (format nil "~d:" hours) accum))
-    (push (format nil "~2,'0d:~2,'0d" mins secs) accum)
-    (apply #'concatenate 'string (nreverse accum))))
-
-
-(defun switch-buttons (interface obj)
-  (setf (capi:button-enabled (close-button interface)) t
-        (capi:button-enabled (abort-button interface)) nil)
-  (when (errorlogs-waiting-p obj)
-    (setf (capi:button-enabled (messages-button interface)) t)))
-
-
-(defparameter *faces*
-  (list
-   (editor:make-face 'one   :if-exists :overwrite :foreground :red :bold-p t)
-   (editor:make-face 'two   :if-exists :overwrite :foreground :honeydew4 :italic-p t)
-   (editor:make-face 'three :if-exists :overwrite :foreground :blue3 :underline-p t)
-   ))
-        
-
-
-(defun face ()
-  (nth (random (length *faces*)) *faces*))
-
-
-(defmacro with-progress-new ((title obj &key (limit nil) (buffername "temp")) &body body)
-  (let ((interface  (gensym))
-        (i          (gensym))
-        (aborted    (gensym))
-        (start-time (gensym))
-        (count      (gensym))
-        (rollback   (gensym)))
-    `(progn
-       (let* ((,aborted   nil)
-              (,interface
-               (make-instance 'progress
-                              :title ,title
-                              :buffer-name ,buffername
-                              :abort-callback #'(lambda (interface)
-                                                  (declare (ignore interface))
-                                                  (when (and (not ,aborted)
-                                                             (wg-confirm "Megszakítja a feldolgozást?"))
-                                                    (wg-floating-message "Megszakítás ...")
-                                                    (setf ,aborted t)
-;                                                    (switch-buttons interface)
-                                                    ))
-                              :close-callback #'(lambda (interface)
-                                                  (purge-errorlogs ,obj)
-                                                  (purge-errordumps ,obj)
-                                                  (capi:destroy interface))
-                              :messages-callback #'(lambda (interface)
-                                                     (setf (full-dump interface) (fulldump ,obj))
-                                                     (wg-save-error-callback interface))
-;                              (lambda (interface)
-;                                                     (declare (ignore interface))
-;                                                     (send-messages ,obj))
-                              ))
-              (,i 0)
-              (,count ,limit)
-              (,start-time (get-internal-real-time))
-              (,rollback nil))
-         (capi:modify-editor-pane-buffer (text-disp ,interface) :contents "")
-         (capi:display ,interface)
-         (block big-body
-           (setf (pstep-fn ,obj)
-                 #'(lambda (&key (abs nil) (step 1))
-                     (let* ((percent (if (and abs (numberp abs) (<= abs 100))
-                                       abs
-                                       (* 100 (/ (incf ,i step)
-                                                 (or ,count (pstep-limit ,obj))))))
-                            (current-time (get-internal-real-time))
-                            (time-spent   (/ (- current-time ,start-time)
-                                             internal-time-units-per-second))
-                            (time-left    (max (- (* time-spent (/ 100 percent)) time-spent)
-                                               0)))
-                       (setf (capi:range-slug-start (progress ,interface)) (round percent))
-                       (setf (capi:title-pane-text (rest-time ,interface))
-                             (format nil "Eltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
-                                     (timestr (round time-spent))
-                                     (timestr (round time-left))))))
-                 (disp-fn ,obj)
-                 #'(lambda (string &rest args)
-                     (ignore-errors
-#|                       (let* ((buffer (editor:buffer-from-name ,buffername))
-                              (point  (editor:buffers-end buffer)))
-                         (editor:insert-string point (apply #'format nil string args))
-                         (capi:scroll (text-disp ,interface) :vertical :move :end))|#
-                       (let* ((buffer   (editor:buffer-from-name ,buffername))
-                              (point    (editor:buffers-end buffer))
-                              (formated (apply #'format nil string args)))
-                         (editor:with-point ((start point :before-insert)
-                                             (end   point :after-insert))
-                           (editor:insert-string start formated)
-;                           (editor:insert-string start (editor:points-to-string start end))
-
-;                           (editor:put-text-property-no-edit start end 'face (face))
-                           (editor:put-text-property-no-edit
-                            (editor:buffers-start buffer)
-                            (editor:buffers-end buffer)
-                            'face (face))
-
-                           (capi:scroll (text-disp ,interface) :vertical :move :end)
-                           )
-                         )
-                       ))
-                 (pabort-fn ,obj)
-                 #'(lambda ()
-                     (when ,aborted
-                       (disp ,obj "~%~%A feldolgozás megszakítva, az ablak bezárható.~%")
-                       (switch-buttons ,interface ,obj)
-                       (return-from big-body)))
-                 (pkill-fn ,obj)
-                 #'(lambda ()
-                     (setf ,aborted t)
-                     (disp ,obj "~%~%A feldolgozás félbeszakadt, az ablak bezárható.~%")
-                     (switch-buttons ,interface ,obj))
-                 )
-           ,@body
-           (when (errorlogs-waiting-p ,obj)
-             (setf ,rollback (capi:get-vertical-scroll-parameters (text-disp ,interface) :max-range))
-             (let ((line (line 70 #\*)))
-               (disp ,obj "~3%~a~%HIBÁK RÉSZLETEZÉSE:~%~a~2%" line line))
-             (disp-errorlogs ,obj)
-             )
-           (switch-buttons ,interface ,obj)
-           (disp ,obj "~2%A feldolgozás befejezõdött, az ablak bezárható.~%")
-           (when ,rollback
-             (capi:execute-with-interface
-              ,interface
-              #'(lambda ()
-                  (capi:scroll (text-disp ,interface) :vertical :move ,rollback)))))))))
 
 
 ;; ----------------------------------------------------------------------
@@ -248,6 +27,7 @@
                             :cancel-function ,#'(lambda (pane) (setf (capi:text-input-pane-text pane) text)))
                  :completion-function completion-fn))
 
+
 (defun wg-password-input (callback change-callback text &rest rest)
   (apply #'make-instance
          (append (list 'capi:password-pane
@@ -255,6 +35,7 @@
                        :callback callback
                        :change-callback change-callback)
                  rest)))
+
 
 (defun wg-file-selector (message filter filters callback text &key (cancel nil))
   (make-instance
@@ -290,8 +71,7 @@
 ;   :callback callback
 ;   :editing-callback callback
 ;   :change-callback callback
-   :text-change-callback callback
-   ))
+   :text-change-callback callback))
 
 
 (defun wg-options (callback items item)
@@ -323,17 +103,6 @@
    :selected default))
 
 
-#|(defun wg-window (title best-width max-height &rest list)
-  (capi:contain
-   (make-instance
-    'capi:grid-layout
-    :rows (ceiling (/ (length list) 2))
-    :description list)
-   :best-x '(- (/ :screen-width 2) 200)
-   :best-y '(- (/ :screen-height 2) 100)
-   :best-width best-width
-   :max-height max-height
-   :title title))|#
 (defun wg-window (contain-args &rest list)
   (apply #'capi:contain
    (make-instance
@@ -385,7 +154,6 @@
        :title title
        :best-width 200
        :max-height 80
-;       :window-styles '(:borderless); :always-on-top)
        :window-styles '(:tool)
        :initial-focus (if (and username
                                (stringp username)
@@ -405,6 +173,225 @@
 
 (defun wg-confirm (string &rest rest)
   (funcall #'capi:confirm-yes-or-no string rest))
+
+
+
+
+
+;; ----------------------------------------------------------------------
+;; Progress window
+
+
+(capi:define-interface progress-window ()
+
+  ;; CUSTOM SLOTS =======================================================
+  ((full-dump     :accessor full-dump     :initarg   :full-dump)
+   (aborted-p     :accessor aborted-p     :initform  nil)
+   (progress-pos  :accessor progress-pos  :initform  0)
+   (start-time    :accessor start-time    :initform  (get-internal-real-time))
+;   (summary-start :accessor summary-start :initform  nil)
+   (buffer-name   :accessor buffer-name   :initarg   :buffer-name)
+   (text-stream   :accessor text-stream   :initarg   :text-stream)
+   (title         :accessor title         :initarg   :title)
+   (step-count    :accessor step-count    :initarg   :step-count)
+   (exit-tag      :accessor exit-tag      :initarg   :exit-tag))
+
+  (:panes ; =============================================================
+   (text-disp ; Text output by working thread. --------------------------
+    capi:collector-pane
+    :accessor           text-disp
+    :flag               'minimal-example
+    :buffer-name        buffer-name
+    :enabled            :read-only
+    :visible-min-width  '(character 80)
+    :visible-min-height '(character 30)
+    :wrap-style         :split-on-space
+    :vertical-scroll    t)
+   
+   (progress-bar ; Progress bar -----------------------------------------
+    capi:progress-bar
+    :accessor progress-bar
+    :start 0
+    :end 100)
+
+   (rest-time ; Remaining time display ----------------------------------
+    capi:title-pane
+    :accessor rest-time
+    :text "")
+
+
+   ;; 'scroll to bottom' button
+
+   
+   (abort-button ; "Abort" button ---------------------------------------
+    capi:push-button
+    :accessor abort-button
+    :text "Megszakítás"
+    :callback-type :interface
+    :callback (:initarg abort-callback))
+
+   (send-details-button ; "Send error details" button -------------------
+    capi:push-button
+    :accessor messages-button
+    :text "Hibajelzés küldése/mentése"
+    :callback-type :interface
+    :callback (:initarg send-details-callback)
+    :enabled nil)
+
+   (close-button ; "Close window" button --------------------------------
+    capi:push-button
+    :accessor close-button
+    :text "Bezárás"
+    :callback-type :interface
+    :callback (:initarg close-callback)
+    :enabled nil))
+
+  (:layouts ; ===========================================================
+   (upper  capi:column-layout '(text-disp progress-bar rest-time))
+   (lower  capi:row-layout '(abort-button send-details-button close-button))
+   (window capi:column-layout '(upper lower)))
+
+
+  (:default-initargs ; ==================================================
+   :title  "Feldolgozás"
+   :best-x 735
+   :best-y 400
+   :layout 'window
+   :buffer-name (random-alphanumeric-string 6)
+   :exit-tag nil
+   
+   :confirm-destroy-function #'(lambda (interface)
+                                 (capi:button-enabled (close-button interface)))
+
+   :abort-callback #'(lambda (interface)
+                       (when (and (not (aborted-p interface))
+                                  (wg-confirm "Megszakítja a feldolgozást?"))
+                         (wg-floating-message "Megszakítás ..." 3)
+                         (setf (aborted-p interface) t)))
+
+   :create-callback #'(lambda (interface)
+                        (setf (text-stream interface)
+                              (capi:collector-pane-stream (text-disp interface)))
+                        (capi:modify-editor-pane-buffer (text-disp interface) :contents ""))))
+
+
+(defmethod progress-send-details-callback-fn ((obj wax-app))
+  #'(lambda (interface)
+      (setf (full-dump interface) (full-dump obj))
+      (wg-send-error interface)))
+      
+
+(defmethod progress-close-callback-fn ((obj wax-app))
+  #'(lambda (interface)
+      (purge-errorlogs obj)
+      (purge-errordumps obj)
+      (capi:destroy interface)))
+
+
+(defun progress-time-string (secs)
+  (let* ((hours (truncate (/ secs 3600)))
+         (rem1  (- secs (* hours 3600)))
+         (mins  (truncate (/ rem1 60)))
+         (secs  (- rem1 (* mins 60)))
+         (accum '()))
+    (unless (zerop hours)
+      (push (format nil "~d:" hours) accum))
+    (push (format nil "~2,'0d:~2,'0d" mins secs) accum)
+    (apply #'concatenate 'string (nreverse accum))))
+
+
+(defmethod switch-buttons ((interface progress-window) errorlogs-pending-p)
+  (setf (capi:button-enabled (close-button interface)) t
+        (capi:button-enabled (abort-button interface)) nil)
+  (when errorlogs-pending-p
+    (setf (capi:button-enabled (messages-button interface)) t)))
+
+
+(defmethod step-progress ((interface progress-window) &key (step-count nil) (abs nil) (step 1))
+  (let* ((percent (if (and abs (numberp abs) (<= abs 100))
+                    abs
+                    (* 100 (/ (incf (progress-pos interface) step)
+                              (or step-count (step-count interface))))))
+         (current-time (get-internal-real-time))
+         (time-spent   (/ (- current-time (start-time interface))
+                          internal-time-units-per-second))
+         (time-left    (max (- (* time-spent (/ 100 percent)) time-spent)
+                            0)))
+    (setf (capi:range-slug-start (progress-bar interface)) (round percent)
+          (capi:title-pane-text  (rest-time interface))
+          (format nil "Eltelt idõ: ~a,  becsült hátralévõ idõ: ~a"
+                  (progress-time-string (round time-spent))
+                  (progress-time-string (round time-left))))))
+
+
+(defmethod abort-progress-when-requested ((interface progress-window))
+  (when (aborted-p interface)
+    (format (text-stream interface) "~%~%A feldolgozás megszakítva.~%")
+    (switch-buttons interface nil)
+    (with-slots (exit-tag) interface
+      (when exit-tag
+        (throw exit-tag nil)))))
+
+
+(defmethod progress ((interface progress-window) &key (step-count nil) (abs nil) (step 1))
+  (step-progress interface :step-count step-count :abs abs :step step)
+  (abort-progress-when-requested interface))
+
+
+(defmethod kill-progress-fn ((interface progress-window))
+  #'(lambda (errorlogs-pending-p)
+      (setf (aborted-p interface) t)
+      (format (text-stream interface) "~%~%A feldolgozás félbeszakadt.~%")
+      (switch-buttons interface errorlogs-pending-p)))
+
+
+(defmethod wrap-up-progress ((interface progress-window) (obj wax-app))
+  (with-slots (text-disp text-stream) interface
+    (let ((summary-start nil)
+          (line (line 70 #\*)))
+      (when (errorlogs-pending-p obj)
+        (setf summary-start (capi:get-vertical-scroll-parameters text-disp :max-range))
+        (format text-stream "~3%~a~%HIBÁK RÉSZLETEZÉSE:~%~a~2%" line line)
+        (display-errorlogs obj text-stream))
+      (switch-buttons interface (errorlogs-pending-p obj))
+      (format text-stream "~2%A feldolgozás befejezõdött.~%")
+      (when summary-start
+        (capi:execute-with-interface interface
+          #'(lambda () (capi:scroll text-disp :vertical :move summary-start)))))))
+
+
+(defmacro with-progress-window ((interface-var step-count wax-app
+                                               &key (title "Feldolgozás")
+                                               (stream nil)) &body body)
+  `(let ((,interface-var (make-instance 'progress-window :step-count ,step-count
+                                        :title ,title :exit-tag (gensym)
+                                        :close-callback (progress-close-callback-fn ,wax-app)
+                                        :send-details-callback (progress-send-details-callback-fn
+                                                                ,wax-app))))
+     (setf (kill-fn ,wax-app) (kill-progress-fn ,interface-var))
+     (catch (exit-tag ,interface-var)
+       (progn
+         (with-slots ((,(or stream 's) text-stream)) ,interface-var
+           (capi:display ,interface-var)
+           ,@body
+           (wrap-up-progress ,interface-var ,wax-app))))))
+
+
+(defun p3tb ()
+  (let ((obj (make-instance 'wax-app)))
+    (with-wax-errorsink (obj :enabled t)
+      (with-progress-window (interface 100 obj :title "Progress teszt" :stream s)
+        (dotimes (i 100)
+          (sleep 0.2)
+          (format s "vazz, ~a~%" i)
+          (when (zerop (mod i 3))
+            (queue-errorlog obj (format nil "~a osztható 3-mal!~%" i)))
+;          (when (= i 29)
+;            (format s "0 / 0 = ~a~%" (/ 0 0)))
+          (progress interface))))))
+
+
+
 
 
 ;; ----------------------------------------------------------------------
@@ -438,19 +425,6 @@
     (capi:destroy interface)))
 
 
-#|(defun wg-send-error (interface)
-  (let ((dumpfile (dumpfile-name :use-tempdir t)))
-    (if (outlook-running-p)
-      (progn
-        (save-forms dumpfile (full-dump interface))
-        (with-property-accessors
-          (setf (property-accessors-on) t)
-          (new-mail "denes.cselovszki@kk.gov.hu"
-                    (format nil "~a hibajelzés" (package-name *package*))
-                    :attch dumpfile))
-        (capi:destroy interface))
-      (progn
-        (wg-save-error interface)))))|#
 (defun wg-send-error (interface)
   (let ((dumpfile (dumpfile-name :use-tempdir t)))
     (if (outlook-running-p)
@@ -462,13 +436,6 @@
         (capi:destroy interface))
       (progn
         (wg-save-error interface)))))
-
-
-(defun wg-save-error-callback (interface)
-#|  (if (outlook-running-p)
-    (wg-send-error interface)
-    (wg-save-error interface)))|#
-  (wg-send-error interface))
 
 
 (gp:register-image-translation
@@ -508,21 +475,13 @@
     :accessor messages-button
     :text "Hibajelzés küldése/mentése"
     :callback-type :interface
-    :callback #'wg-save-error-callback)
+    :callback #'wg-send-error)
    (close-button
     capi:push-button
     :accessor close-button
     :text "Bezárás"
     :callback-type :interface
     :callback #'capi:quit-interface)
-
-#|   (two-buttons
-    capi:push-button-panel
-    :accessor two-buttons
-    :items (list "Hibajelzés mentése" "Bezárás")
-    :layout-args '(:x-uniform-size-p t)
-    :callback-type :interface
-    :callbacks '(wg-save-error capi:quit-interface))|#
    )
   (:layouts
    (upper
@@ -568,4 +527,4 @@
    (make-instance
     'errordial
     :message (first (errorlogs obj))
-    :full-dump (fulldump obj))))
+    :full-dump (full-dump obj))))

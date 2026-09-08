@@ -121,14 +121,17 @@
 (defun kill-n-sink (obj details-fn ctrl-string &rest keys)
   "Handler for an unskippable condition."
   (lambda (condition)
-    (pkill obj) ;; If we call this only if errorsink is enabled, running without errorsink will not switch the progress window to finished state, and it won't be closeable!!!
+    ;; The 'kill-fn' stored in the app object is called;
+    ;; it will hopefully leave the GUI in a finalized state.
+    (kill obj)
+    ;; When errorsink is active, error details are saved in the app object,
+    ;; the error dialog is shown, then execution jumps to errorsink exit;
+    ;; otherwise, the condition remains unhandled.
     (when (errorsink-enabled-p obj)
-;      (pkill obj)
       (queue-errorlog obj (construct-errorlog condition details-fn ctrl-string keys))
       (queue-errordump obj (backtrace->string 2))
       (wg-errordial obj)
-      (throw 'sinked nil)
-      )))
+      (throw 'sinked nil))))
 
 
 (defun skip (obj)
@@ -140,7 +143,7 @@
 
 
 ;;; Wrapper macro to add errorhandling to main loop.
-(defmacro with-wax-errorsink (obj &body body)
+(defmacro with-wax-errorsink ((obj &key (enabled t)) &body body)
   `(catch 'sinked
      (handler-bind ((com:com-dispatch-invoke-exception-error
                      (kill-n-sink ,obj #'com-dispatch-invoke-exception-error-details
@@ -154,6 +157,9 @@
                      (skip ,obj))
                     (condition
                      (kill-n-sink ,obj #'condition-string "Váratlan állapot: ~a" :data)))
+       (if ,enabled
+         (enable-errorsink ,obj)
+         (disable-errorsink ,obj))
        ,@body)))
 
 

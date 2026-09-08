@@ -2,6 +2,7 @@
                                                                               ;
 
 (in-package #:wax)
+#.(enable-ccom-syntax)
 
 
 ;; ======================================================================
@@ -11,25 +12,20 @@
   ((filename
     :initarg :filename
     :accessor filename)
+   (worksheet
+    :initarg :worksheet
+    :accessor worksheet)
    (data
     :accessor data
     :initform nil)
    (loaded-p
     :accessor loaded-p
     :initform nil))
+  (:default-initargs
+   :worksheet 1)
   (:documentation "Data sources used during app execution."))
 
-#|(defmethod load-src ((obj data-source) &optional (header-height 1))
-  (with-slots ((filename filename)) obj
-    (when (and filename
-               (string/= filename "")
-               (probe-file filename))
-      (setf (data obj)
-            (with-workbook (:open filename :read-only t :wsvars (wsheet) :close t)
-              (read-xarray (used-range wsheet) :from-row (1+ header-height)))
-            (loaded-p obj) t)
-      )))|#
-(defmethod load-src ((obj data-source) &key (first-row 2) (header-row (1- first-row)))
+#|(defmethod load-src ((obj data-source) &key (first-row 2) (header-row (1- first-row)))
   (with-slots ((filename filename)) obj
     (when (and filename
                (string/= filename "")
@@ -37,6 +33,18 @@
       (setf (data obj)
             (with-workbook (:open filename :read-only t :wsvars (wsheet) :close t)
               (read-xarray (used-range wsheet) :from-row first-row :header-row header-row))
+            (loaded-p obj) t))))|#
+;(defmethod load-src ((obj data-source) &optional (header-height 1))
+(defmethod load-src ((obj data-source) &key (first-row 2) (header-row (1- first-row)))
+  (with-slots ((filename filename)) obj
+    (when (and filename
+               (string/= filename "")
+               (probe-file filename))
+      (setf (data obj)
+            (with-workbook (:open filename :wbook wbook :read-only t :wsvars (1st-ws) :close t)
+              (cclet* ((wsheets (?'worksheets wbook))
+                       (wsheet  (!'item wsheets (worksheet obj))))
+                (read-xarray (used-range wsheet) :from-row first-row :header-row header-row)))
             (loaded-p obj) t))))
 
 (defmethod purge ((obj data-source))
@@ -59,22 +67,14 @@
   ((state
     :initarg :state
     :accessor state)
-   (errorsink-enabled
-    :initarg :errorsink-enabled
+   (errorsink-enabled-p
+    :initarg :errorsink-enabled-p
     :accessor errorsink-enabled-p)
    (execute-fn
     :initarg :execute-fn
     :accessor execute-fn)
-   (disp-fn
-    :accessor disp-fn)
-   (pstep-limit
-    :accessor pstep-limit)
-   (pstep-fn
-    :accessor pstep-fn)
-   (pabort-fn
-    :accessor pabort-fn)
-   (pkill-fn
-    :accessor pkill-fn
+   (kill-fn
+    :accessor kill-fn
     :initform #'(lambda (&optional obj)
                   (declare (ignore obj))))
    (data-sources
@@ -89,31 +89,15 @@
   (:documentation "Wax app environment."))
 
 
-;; ----------------------------------------------------------------------
-;; Progress window methods
-
-(defmethod disp ((obj wax-app) control-string &rest args)
-  (apply (disp-fn obj) control-string args))
-
-;(defmethod set-pstep-limit ((obj wax-app) limit)
-;  (setf (pstep-limit obj) limit))
-
-(defmethod pstep ((obj wax-app) &key (abs nil) (step 1))
-  (funcall (pstep-fn obj) :abs abs :step step))
-
-(defmethod pabort ((obj wax-app))
-  "Stop the progress loop by user intent."
-  (funcall (pabort-fn obj)))
-
-(defmethod pkill ((obj wax-app))
-  "Stop the progress loop from a WITH-WAX-ERRORSINK clause."
-  (funcall (pkill-fn obj)))
+(defmethod kill ((obj wax-app))
+  "Kill the wax app loop from an ERRORSINK clause. Usable when PKILL-FN is initialized."
+  (funcall (kill-fn obj) (errorlogs-pending-p obj)))
 
 
 ;; ----------------------------------------------------------------------
 ;; State permanency & handling
 
-;(defmethod save-state ((obj wax-app) &key (package-name "WAX") (keys '() keys-provided-p))
+
 (defmethod save-state ((obj wax-app) &key (package-name nil) (keys '() keys-provided-p))
   (let* ((filename (appfile *state-file* package-name))
          (state    (state obj))
@@ -124,7 +108,6 @@
       (hide-file filename nil))
     (save-forms filename plist)))
 
-;(defmethod load-state ((obj wax-app) &key (package-name "WAX") (keys '() keys-provided-p))
 (defmethod load-state ((obj wax-app) &key (package-name nil) (keys '() keys-provided-p))
   (let ((filename (appfile *state-file* package-name))
         (news     '()))
@@ -160,18 +143,23 @@
 ;; ----------------------------------------------------------------------
 ;; Handling data sources
 
-(defmethod add-data-source ((obj wax-app) key filename)
+#|(defmethod add-data-source ((obj wax-app) key filename)
   (setf (data-sources obj)
         (override-pairs
          (data-sources obj)
-         (list key (make-instance 'data-source :filename filename)))))
+         (list key (make-instance 'data-source :filename filename)))))|#
+(defmethod add-data-source ((obj wax-app) key filename &optional (worksheet 1))
+  (setf (data-sources obj)
+        (override-pairs
+         (data-sources obj)
+         (list key (make-instance 'data-source
+                                  :filename  filename
+                                  :worksheet worksheet)))))
 
 (defmethod remove-data-source ((obj wax-app) key)
   (setf (data-sources obj)
         (remove-pairs (data-sources obj) (list key))))
 
-#|(defmethod load-data-source ((obj wax-app) key &optional (header-height 1))
-  (load-src (getf (data-sources obj) key) header-height))|#
 (defmethod load-data-source ((obj wax-app) key &key (first-row 2) (header-row (1- first-row)))
   (load-src (getf (data-sources obj) key) :first-row first-row :header-row header-row))
 
@@ -198,28 +186,27 @@
 (defmethod queue-message ((obj wax-app) getter setter string)
   (funcall setter (cons string (funcall getter obj)) obj))
 
-(defmethod messages-waiting-p ((obj wax-app) getter)
+(defmethod messages-pending-p ((obj wax-app) getter)
   (not (zerop (length (funcall getter obj)))))
 
-(defmethod disp-messages ((obj wax-app) getter)
+(defmethod display-messages ((obj wax-app) getter stream)
   (dolist (message (reverse (funcall getter obj)))
-    (disp obj message))
-  (disp obj "~6%"))
+    (format stream message))
+  (format stream "~6%"))
 
 (defmethod purge-messages ((obj wax-app) setter)
   (funcall setter '() obj))
-;  (setf (funcall accessor obj) '()))
 
 
 ;; Errorlogs
 (defmethod queue-errorlog ((obj wax-app) string)
   (queue-message obj #'errorlogs #'(setf errorlogs) string))
 
-(defmethod errorlogs-waiting-p ((obj wax-app))
-  (messages-waiting-p obj #'errorlogs))
+(defmethod errorlogs-pending-p ((obj wax-app))
+  (messages-pending-p obj #'errorlogs))
 
-(defmethod disp-errorlogs ((obj wax-app))
-  (disp-messages obj #'errorlogs))
+(defmethod display-errorlogs ((obj wax-app) stream)
+  (display-messages obj #'errorlogs stream))
 
 (defmethod purge-errorlogs ((obj wax-app))
   (purge-messages obj #'(setf errorlogs)))
@@ -229,35 +216,32 @@
 (defmethod queue-errordump ((obj wax-app) string)
   (queue-message obj #'errordumps #'(setf errordumps) string))
 
-(defmethod errordumps-waiting-p ((obj wax-app))
-  (messages-waiting-p obj #'errordumps))
+(defmethod errordumps-pending-p ((obj wax-app))
+  (messages-pending-p obj #'errordumps))
 
-(defmethod disp-errordumps ((obj wax-app))
-  (disp-messages obj #'errordumps))
+(defmethod display-errordumps ((obj wax-app) stream)
+  (display-messages obj #'errordumps stream))
 
 (defmethod purge-errordumps ((obj wax-app))
   (purge-messages obj #'(setf errordumps)))
 
 
 ;; Dump both streams into a single string.
-(defmethod fulldump ((obj wax-app))
-  (when (errorlogs-waiting-p obj)
-    (let ((fd (make-string-output-stream))
-          (big-sep (format nil "~a~%~a~%~a~%~a~%~a"
-                           (line 77 #\=) (line 77 #\=) (line 77 #\=) (line 77 #\=) (line 77 #\=)))
-          (small-sep (line 70)))
-      (loop for log in (errorlogs obj)
-            for dump in (errordumps obj)
-            doing
-            (format fd "~a~4%~a~%  HIBAÜZENET:~%~a~4%~a~4%~a~%  BACKTRACE:~%~a~4%~a~8%"
-                    big-sep
-                    small-sep
-                    small-sep
-                    log
-                    small-sep
-                    small-sep
-                    dump))
-      (get-output-stream-string fd))))
+(defmethod full-dump ((obj wax-app))
+  (when (errorlogs-pending-p obj)
+    (with-slots (errorlogs errordumps) obj
+      (let ((fd (make-string-output-stream))
+            (big-sep (format nil "~a~%~a~%~a~%~a~%~a"
+                             (line 77 #\=) (line 77 #\=) (line 77 #\=) (line 77 #\=) (line 77 #\=)))
+            (small-sep (line 70)))
+        (dotimes (i (max (length errorlogs)
+                         (length errordumps)))
+          (format fd "~a~4%~a~%  HIBAÜZENET:~%~a~4%~a~4%~a~%  BACKTRACE:~%~a~4%~a~8%"
+                  big-sep small-sep small-sep
+                  (nth i errorlogs)
+                  small-sep small-sep
+                  (nth i errordumps)))
+      (get-output-stream-string fd)))))
 
 
 ;; ----------------------------------------------------------------------
@@ -277,7 +261,7 @@
   (if errorsink-on
     (enable-errorsink obj)
     (disable-errorsink obj))
-  (with-wax-errorsink obj
+  (with-wax-errorsink (obj)
     (funcall (execute-fn obj) obj args)))
 
 
@@ -287,3 +271,12 @@
 ;; Sandbox
 
 
+
+
+
+
+
+
+
+
+#.(disable-ccom-syntax)

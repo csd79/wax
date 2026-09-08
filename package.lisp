@@ -7,45 +7,6 @@
 (defpackage #:wax
   (:use #:cl #:utils #:ccom4 #:achar #:ccoffice)
   (:export
-#|   #:appdir
-   #:user-homedir
-   #:user-tempdir
-   #:random-alphanumeric-string
-   #:new-temp-filename
-   #:saving-with-intermediate-temp
-   #:appfile
-   #:load-forms
-   #:save-forms
-   #:hide-file
-   #:keep-pairs
-   #:remove-pairs
-   #:modify-keys
-   #:override-pairs
-   #:drop-nils
-   #:modify-plist
-   #:timestamp
-   #:identify-month
-   #:parse-hudate
-   #:hudate->unitime
-   #:valid-date-p
-   #:hudate
-   #:hudate-parsable
-   #:sub->words
-   #:currency
-   #:clean-city
-   #:remove-illegal-filename-chars
-   #:clean-name
-   #:add-article
-   #:fix-phone-number
-
-   #:eval-definition
-   #:lambda-expr
-   #:compiled-fn
-
-   #:with-local-copies
-
-   #:file-in-dir
-   #:line|#
 
    #:with-progress
    #:with-progress-new
@@ -61,6 +22,13 @@
    #:wg-floating-message
    #:wg-confirm
 
+   #:text-stream
+   #:step-progress
+   #:abort-progress-when-requested
+   #:progress
+   #:kill-progress
+   #:with-progress-window
+   
    #:backtrace->string
    #:defmessenger
    #:skippable
@@ -84,10 +52,12 @@
    #:pstep-fn
    #:pabort-fn
    #:data-sources
-   #:disp
-   #:set-pstep-limit
-   #:pstep
-   #:pabort
+
+;   #:disp
+;   #:set-pstep-limit
+;   #:pstep
+;   #:pabort
+
    #:save-state
    #:load-state
    #:init-state
