@@ -22,11 +22,14 @@
    #:wg-floating-message
    #:wg-confirm
 
+   #:color-collector-pane
    #:text-stream
    #:step-progress
    #:abort-progress-when-requested
    #:progress
-   #:kill-progress
+   #:kill-progress-fn
+   #:scroll-pos
+   #:scroll-back
    #:with-progress-window
    
    #:backtrace->string
@@ -52,11 +55,6 @@
    #:pstep-fn
    #:pabort-fn
    #:data-sources
-
-;   #:disp
-;   #:set-pstep-limit
-;   #:pstep
-;   #:pabort
 
    #:save-state
    #:load-state

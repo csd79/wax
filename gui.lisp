@@ -345,19 +345,31 @@
       (switch-buttons interface errorlogs-pending-p)))
 
 
+(defun scroll-pos (pane)
+  (capi:get-vertical-scroll-parameters pane :max-range))
+
+
+(defun scroll-back (pane pos)
+  (capi:execute-with-interface
+   (capi:element-interface pane)
+   #'(lambda () (capi:scroll pane :vertical :move pos))))
+
+
 (defmethod wrap-up-progress ((interface progress-window) (obj wax-app))
   (with-slots (text-disp text-stream) interface
     (let ((summary-start nil)
           (line (line 70 #\*)))
       (when (errorlogs-pending-p obj)
-        (setf summary-start (capi:get-vertical-scroll-parameters text-disp :max-range))
+;        (setf summary-start (capi:get-vertical-scroll-parameters text-disp :max-range))
+        (setf summary-start (scroll-pos text-disp))
         (format text-stream "~3%~a~%HIBÁK RÉSZLETEZÉSE:~%~a~2%" line line)
         (display-errorlogs obj text-stream))
       (switch-buttons interface (errorlogs-pending-p obj))
       (format text-stream "~2%A feldolgozás befejezõdött.~%")
       (when summary-start
-        (capi:execute-with-interface interface
-          #'(lambda () (capi:scroll text-disp :vertical :move summary-start)))))))
+#|        (capi:execute-with-interface interface
+          #'(lambda () (capi:scroll text-disp :vertical :move summary-start)))))))|#
+        (scroll-back text-disp summary-start)))))
 
 
 (defmacro with-progress-window ((interface-var step-count wax-app
