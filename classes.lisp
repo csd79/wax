@@ -258,10 +258,10 @@
 
 (defmethod wax-execute ((obj wax-app) &key (errorsink-on t) (args '()))
   "Start the function stored in the EXECUTE-FN slot of OBJ with the errorsink active or not."
-  (if errorsink-on
+#|  (if errorsink-on
     (enable-errorsink obj)
-    (disable-errorsink obj))
-  (with-wax-errorsink (obj)
+    (disable-errorsink obj))|#
+  (with-wax-errorsink (obj :enabled errorsink-on)
     (funcall (execute-fn obj) obj args)))
 
 
